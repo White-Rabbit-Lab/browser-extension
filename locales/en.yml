@@ -1,0 +1,28 @@
+# English translations for the browser extension
+
+# Logo alt texts
+logoAlt:
+  wxt: "WXT logo"
+  react: "React logo"
+
+# Main title
+title: "WXT + React"
+
+# Button and interactive elements
+button:
+  count: "count is $1"
+
+# Instructions and help text
+instructions:
+  editCode: "Edit <code>src/App.tsx</code> and save to test HMR"
+  learnMore: "Click on the WXT and React logos to learn more"
+
+# Options page
+options:
+  title: "Extension Settings"
+  language:
+    title: "Language"
+    description: "Select your preferred language"
+  save: "Save Settings"
+  cancel: "Cancel"
+  saved: "Settings saved successfully"
