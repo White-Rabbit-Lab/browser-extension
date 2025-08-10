@@ -6,26 +6,54 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveLanguagePreference, type SupportedLocale } from "@/lib/i18n";
-import { useState } from "react";
+import {
+  saveLanguagePreference,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from "@/lib/i18n";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 function App() {
   const { t, i18n } = useTranslation();
   const [saved, setSaved] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState(i18n.language);
-  const [pendingLanguage, setPendingLanguage] = useState(i18n.language);
+
+  // Normalize to base code and restrict to our supported set
+  const normalizeLang = (lng: string): SupportedLocale => {
+    const baseLang = (lng.split?.("-")[0] ?? "en") as SupportedLocale;
+    // Ensure it's a supported locale
+    return SUPPORTED_LOCALES.includes(baseLang) ? baseLang : "en";
+  };
+
+  const initial = normalizeLang(i18n.resolvedLanguage ?? i18n.language);
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<SupportedLocale>(initial);
+  const [pendingLanguage, setPendingLanguage] =
+    useState<SupportedLocale>(initial);
+
+  // Sync local selection if language changes elsewhere
+  useEffect(() => {
+    const handler = (lng: string) => {
+      const n = normalizeLang(lng);
+      setSelectedLanguage(n);
+      setPendingLanguage(n);
+    };
+    i18n.on("languageChanged", handler);
+    return () => {
+      i18n.off("languageChanged", handler);
+    };
+  }, [i18n]);
 
   const handleLanguageSelect = (newLang: string) => {
     // Only update the pending selection, don't change language yet
-    setPendingLanguage(newLang);
+    setPendingLanguage(newLang as SupportedLocale);
   };
 
   const handleSave = async () => {
     // Apply language change when Save is clicked
     if (pendingLanguage !== selectedLanguage) {
       await i18n.changeLanguage(pendingLanguage);
-      await saveLanguagePreference(pendingLanguage as SupportedLocale);
+      await saveLanguagePreference(pendingLanguage);
       setSelectedLanguage(pendingLanguage);
     }
     setSaved(true);
