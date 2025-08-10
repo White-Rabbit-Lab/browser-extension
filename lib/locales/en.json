@@ -8,7 +8,7 @@
     "count": "Count: {{count}}"
   },
   "instructions": {
-    "editCode": "Edit <code>src/App.tsx</code> and save to test HMR",
+    "editCode": "Edit <code>{{file}}</code> and save to test HMR",
     "learnMore": "Select the WXT and React logos to learn more"
   },
   "options": {

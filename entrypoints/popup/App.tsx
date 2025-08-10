@@ -2,7 +2,7 @@ import reactLogo from "@/assets/react.svg";
 import { Button } from "@/components/ui/button";
 import { Settings } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { browser } from "wxt/browser";
 import wxtLogo from "/wxt.svg";
 
@@ -53,14 +53,13 @@ function App() {
         >
           {t("button.count", { count })}
         </Button>
-        <p
-          className="text-muted-foreground"
-          dangerouslySetInnerHTML={{
-            __html: t("instructions.editCode").replace(
-              "<code>",
-              '<code class="text-primary">',
-            ),
+        <Trans
+          i18nKey="instructions.editCode"
+          values={{ file: "src/App.tsx" }}
+          components={{
+            code: <code className="text-primary" />,
           }}
+          className="text-muted-foreground"
         />
         <p className="text-muted-foreground">{t("instructions.learnMore")}</p>
       </div>
