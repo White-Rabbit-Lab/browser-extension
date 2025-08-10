@@ -28,11 +28,14 @@ export const test = base.extend<{
     let background: { url(): string };
     if (pathToExtension.endsWith("-mv3")) {
       [background] = context.serviceWorkers();
-      if (!background) background = await context.waitForEvent("serviceworker");
+      if (!background) {
+        background = await context.waitForEvent("serviceworker");
+      }
     } else {
       [background] = context.backgroundPages();
-      if (!background)
+      if (!background) {
         background = await context.waitForEvent("backgroundpage");
+      }
     }
 
     const extensionId = background.url().split("/")[2];

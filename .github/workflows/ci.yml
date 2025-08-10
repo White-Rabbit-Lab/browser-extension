@@ -63,6 +63,10 @@ jobs:
       - name: Build extension
         run: pnpm run build
 
+      - run: |
+          pwd
+          ls -la
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -102,7 +106,7 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(pnpm ls @playwright/test --json | jq -r '.[0].devDependencies["@playwright/test"].version')" >> $GITHUB_OUTPUT
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
