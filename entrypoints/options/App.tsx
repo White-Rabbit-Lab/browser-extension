@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { saveLanguagePreference } from "@/lib/i18n";
+import { saveLanguagePreference, type SupportedLocale } from "@/lib/i18n";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -25,7 +25,7 @@ function App() {
     // Apply language change when Save is clicked
     if (pendingLanguage !== selectedLanguage) {
       await i18n.changeLanguage(pendingLanguage);
-      await saveLanguagePreference(pendingLanguage);
+      await saveLanguagePreference(pendingLanguage as SupportedLocale);
       setSelectedLanguage(pendingLanguage);
     }
     setSaved(true);

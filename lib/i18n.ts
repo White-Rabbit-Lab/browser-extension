@@ -4,23 +4,37 @@ import { browser } from "wxt/browser";
 import enTranslations from "./locales/en.json";
 import jaTranslations from "./locales/ja.json";
 
+// Define supported locales as a const assertion for type safety
+export const SUPPORTED_LOCALES = ["en", "ja"] as const;
+export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
+
+// Type guard to check if a value is a supported locale
+function isSupportedLocale(value: unknown): value is SupportedLocale {
+  return (
+    typeof value === "string" &&
+    SUPPORTED_LOCALES.includes(value as SupportedLocale)
+  );
+}
+
 // Get browser's default language
-export function getBrowserLanguage(): string {
+export function getBrowserLanguage(): SupportedLocale {
   const uiLanguage = browser.i18n.getUILanguage();
   // Extract language code (e.g., "en-US" -> "en", "ja" -> "ja")
   const languageCode = uiLanguage ? uiLanguage.substring(0, 2) : "en";
   // Ensure we only return supported languages
-  return ["en", "ja"].includes(languageCode) ? languageCode : "en";
+  return isSupportedLocale(languageCode) ? languageCode : "en";
 }
 
 // Initialize i18next
 async function initI18n() {
   // Get saved language preference from storage
   const stored = await browser.storage.sync.get("language");
-  const savedLanguage = stored.language as string | undefined;
+  const savedLanguage = stored.language;
 
-  // Use saved language or fall back to browser language
-  const defaultLanguage = savedLanguage || getBrowserLanguage();
+  // Validate saved language and fall back to browser language if invalid
+  const defaultLanguage = isSupportedLocale(savedLanguage)
+    ? savedLanguage
+    : getBrowserLanguage();
 
   await i18n.use(initReactI18next).init({
     resources: {
@@ -45,7 +59,12 @@ async function initI18n() {
 }
 
 // Save language preference to storage
-export async function saveLanguagePreference(language: string) {
+export async function saveLanguagePreference(language: SupportedLocale) {
+  // Runtime validation to ensure only valid languages are saved
+  if (!isSupportedLocale(language)) {
+    console.error(`Invalid language code: ${language}`);
+    return;
+  }
   await browser.storage.sync.set({ language });
 }
 
@@ -53,8 +72,13 @@ export async function saveLanguagePreference(language: string) {
 export function listenForLanguageChanges() {
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === "sync" && changes.language) {
-      const newLanguage = changes.language.newValue as string;
-      i18n.changeLanguage(newLanguage);
+      const newLanguage = changes.language.newValue;
+      // Validate the new language value before changing
+      if (isSupportedLocale(newLanguage)) {
+        i18n.changeLanguage(newLanguage);
+      } else if (newLanguage !== undefined) {
+        console.error(`Invalid language value from storage: ${newLanguage}`);
+      }
     }
   });
 }
