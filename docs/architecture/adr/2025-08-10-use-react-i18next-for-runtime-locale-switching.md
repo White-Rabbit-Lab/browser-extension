@@ -46,6 +46,31 @@ Implementation approach:
 - Slight performance overhead compared to native browser.i18n
 - Loss of Chrome Web Store's automatic language detection for extension metadata
 
+## Implementation Considerations
+
+**Security:**
+
+- Use Trans component instead of dangerouslySetInnerHTML for XSS prevention
+- Implement runtime validation for language codes to prevent injection attacks
+
+**Type Safety:**
+
+- Define SupportedLocale type with const assertion for compile-time safety
+- Use type guards (isSupportedLocale) for runtime validation
+- Ensure all language-related functions use typed parameters
+
+**Error Resilience:**
+
+- Implement safeInitI18n with fallback to default configuration
+- Ensure app renders even if i18n initialization fails
+- Provide graceful degradation with English as fallback language
+
+**Code Organization:**
+
+- Extract common rendering logic to lib/react/render.tsx
+- Centralize i18n configuration and utilities in lib/i18n.ts
+- Keep translation files in lib/locales/ for better module organization
+
 ## Alternatives
 
 1. **@wxt-dev/i18n (Native Browser i18n)** - Rejected because it cannot support runtime locale switching, which is a critical requirement
