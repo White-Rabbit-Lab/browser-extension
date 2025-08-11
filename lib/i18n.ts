@@ -83,4 +83,29 @@ export function listenForLanguageChanges() {
   });
 }
 
+// Safe initialization function with error handling
+export async function safeInitI18n(): Promise<void> {
+  try {
+    await initI18n();
+  } catch (error) {
+    console.error("i18n initialization failed, using defaults:", error);
+    // Fallback to default configuration if initialization fails
+    // This ensures the app still renders with default translations
+    await i18n.use(initReactI18next).init({
+      lng: "en",
+      fallbackLng: "en",
+      resources: {
+        en: { translation: enTranslations },
+        ja: { translation: jaTranslations },
+      },
+      interpolation: {
+        escapeValue: false,
+      },
+      react: {
+        useSuspense: false,
+      },
+    });
+  }
+}
+
 export { i18n, initI18n };
