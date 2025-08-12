@@ -71,8 +71,13 @@ import { z } from "zod";
 import superjson from "superjson";
 
 const t = initTRPC.create({
+  // SuperJSON transformer enables serialization of complex JavaScript types (Date, Map, Set, etc.)
+  // that aren't natively supported by JSON, preserving type safety across message passing
   transformer: superjson,
+  // Set to false since this runs in a browser extension environment, not a Node.js server
   isServer: false,
+  // Required for tRPC to work in non-server environments like browser extensions
+  // where traditional server context doesn't exist
   allowOutsideOfServer: true,
 });
 
