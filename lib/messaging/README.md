@@ -10,6 +10,10 @@ Type-safe messaging library for Chrome Extensions with custom tRPC v11 implement
 - **Tree-shakeable**: Import only what you need
 - **WXT support**: Includes adapter for WXT framework
 - **Easy integration**: Simple to add to existing projects
+- **Error handling**: JSON-RPC 2.0 compliant error formatting
+- **Timeout support**: Configurable request timeouts with automatic cleanup
+- **Debug mode**: Built-in debugging and performance monitoring
+- **Subscription management**: Safe cleanup on port disconnection
 
 ## Installation
 
@@ -65,6 +69,15 @@ createExtensionHandler({
     serialize: (data) => superjson.serialize(data),
     deserialize: (data) => superjson.deserialize(data as any),
   },
+  // Optional: Error handling
+  onError: ({ error, path }) => {
+    console.error(`Error in ${path}:`, error);
+  },
+  // Optional: Debug configuration
+  debug: {
+    enabled: import.meta.env.DEV,
+    logPerformance: true,
+  },
 });
 ```
 
@@ -83,6 +96,13 @@ export const trpc = createTRPCClient<AppRouter>({
       transformer: {
         serialize: (data) => superjson.serialize(data),
         deserialize: (data) => superjson.deserialize(data as any),
+      },
+      // Optional: Request timeout (default: 30000ms)
+      timeout: 60000,
+      // Optional: Debug configuration
+      debug: {
+        enabled: import.meta.env.DEV,
+        logPerformance: true,
       },
     }),
   ],
@@ -117,6 +137,8 @@ lib/messaging/
 ├── core.ts              # Generic messaging system
 ├── trpc.ts              # tRPC v11 integration layer
 ├── types.ts             # Type definitions
+├── errors.ts            # Error handling utilities
+├── debug.ts             # Debug and performance monitoring
 ├── adapters/
 │   └── wxt.ts          # WXT framework adapter
 ├── examples/            # Usage examples
@@ -125,6 +147,90 @@ lib/messaging/
 │   ├── client.ts       # Client example
 │   └── react-usage.tsx # React integration example
 └── index.ts             # Exports
+```
+
+## Advanced Usage
+
+### Error Handling
+
+The library now provides JSON-RPC 2.0 compliant error formatting:
+
+```typescript
+import { formatTRPCError } from "@/lib/messaging";
+
+// In your error handler
+onError: ({ error, path }) => {
+  const formatted = formatTRPCError(error, path);
+  console.error("Formatted error:", formatted);
+  // Send to error tracking service
+};
+```
+
+### Debug Mode
+
+Enable comprehensive debugging for development:
+
+```typescript
+// Enable debug with custom configuration
+const client = createTRPCClient<AppRouter>({
+  links: [
+    extensionLink({
+      debug: {
+        enabled: true,
+        logPerformance: true,
+        level: 4, // DEBUG level
+      },
+    }),
+  ],
+});
+```
+
+### Timeout Configuration
+
+Configure custom timeouts for different scenarios:
+
+```typescript
+// Short timeout for quick operations
+const quickClient = createTRPCClient<AppRouter>({
+  links: [
+    extensionLink({
+      timeout: 5000, // 5 seconds
+    }),
+  ],
+});
+
+// Long timeout for file uploads
+const uploadClient = createTRPCClient<AppRouter>({
+  links: [
+    extensionLink({
+      timeout: 300000, // 5 minutes
+    }),
+  ],
+});
+```
+
+### Performance Monitoring
+
+Access performance statistics in development:
+
+```typescript
+import { createDebugger } from "@/lib/messaging";
+
+const debugger = createDebugger({
+  enabled: true,
+  logPerformance: true,
+});
+
+// Start tracking
+debugger.startPerformance("operation-1", "query", "user.get");
+
+// End tracking
+debugger.endPerformance("operation-1", "success");
+
+// Get statistics
+const stats = debugger.getPerformanceStats();
+console.log("Average duration:", stats.averageDuration);
+console.log("Success rate:", stats.successRate);
 ```
 
 ## Publishing as Library

@@ -17,6 +17,12 @@ import {
   Unsubscribable,
 } from "@trpc/server/observable";
 import { generateId } from "./core";
+import { createDebugger, DebugLevel } from "./debug";
+import {
+  createDisconnectionError,
+  createTimeoutError,
+  formatTRPCError,
+} from "./errors";
 import type {
   CreateExtensionHandlerOptions,
   ExtensionLinkOptions,
@@ -41,7 +47,9 @@ const defaultTransformer: Transformer = {
  * @returns {TRPCLink<TRouter>} tRPC link for extension communication
  * @example
  * const link = extensionLink<AppRouter>({
- *   portOptions: { name: "my-extension" }
+ *   portOptions: { name: "my-extension" },
+ *   timeout: 60000,
+ *   debug: { enabled: true }
  * });
  */
 export function extensionLink<TRouter extends AnyRouter>(
@@ -49,12 +57,24 @@ export function extensionLink<TRouter extends AnyRouter>(
 ): TRPCLink<TRouter> {
   return () => {
     const transformer = options.transformer || defaultTransformer;
+    const timeout = options.timeout ?? 30000; // Default 30 seconds
+    const logger = createDebugger({
+      enabled: options.debug?.enabled,
+      level: options.debug?.level as DebugLevel | undefined,
+      logPerformance: options.debug?.logPerformance,
+    });
 
     return ({ op }) => {
       return observable((observer) => {
         const port =
           options.port || chrome.runtime.connect(options.portOptions);
         const messageId = generateId();
+        let timeoutId: NodeJS.Timeout | undefined;
+        let isCompleted = false;
+
+        // Debug logging
+        logger.logOperation(op);
+        logger.startPerformance(messageId, op.type, op.path);
 
         // Create tRPC message
         const trpcMessage: TRPCMessage = {
@@ -69,18 +89,51 @@ export function extensionLink<TRouter extends AnyRouter>(
 
         const extensionMessage: ExtensionMessage = { trpc: trpcMessage };
 
+        // Setup timeout handling
+        const setupTimeout = () => {
+          if (timeout > 0 && !isCompleted) {
+            timeoutId = setTimeout(() => {
+              if (!isCompleted) {
+                isCompleted = true;
+                const error = createTimeoutError(timeout, op.path);
+                logger.endPerformance(messageId, "error", error);
+                logger.error("Request timeout", {
+                  messageId,
+                  path: op.path,
+                  timeout,
+                });
+                observer.error(TRPCClientError.from(error));
+                cleanup();
+              }
+            }, timeout);
+          }
+        };
+
         // Handle responses
         const messageHandler = (response: ExtensionMessage) => {
           if (response.trpc.id !== messageId) return;
 
+          // Clear timeout on response
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = undefined;
+          }
+
+          logger.logMessage("receive", response.trpc);
+
           if (response.trpc.error) {
-            const clientError = TRPCClientError.from(
-              new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: response.trpc.error.message,
-              }),
-            );
-            observer.error(clientError);
+            isCompleted = true;
+            const error = response.trpc.error;
+            const trcpError = new TRPCError({
+              code:
+                (error.data?.code as typeof TRPCError.prototype.code) ||
+                "INTERNAL_SERVER_ERROR",
+              message: error.message,
+              cause: error.data,
+            });
+            logger.endPerformance(messageId, "error", trcpError);
+            logger.error("Response error", { messageId, error });
+            observer.error(TRPCClientError.from(trcpError));
             return;
           }
 
@@ -88,44 +141,89 @@ export function extensionLink<TRouter extends AnyRouter>(
             const { type, data } = response.trpc.result;
 
             if (type === "stopped") {
+              isCompleted = true;
+              logger.endPerformance(messageId, "success");
+              logger.debug("Subscription stopped", { messageId });
               observer.complete();
             } else {
+              const deserializedData = transformer.deserialize(data);
               observer.next({
                 result: {
-                  data: transformer.deserialize(data),
+                  data: deserializedData,
                 },
               });
 
               if (op.type !== "subscription") {
+                isCompleted = true;
+                logger.endPerformance(messageId, "success");
+                logger.debug("Operation completed", {
+                  messageId,
+                  type: op.type,
+                });
                 observer.complete();
               }
             }
           }
         };
 
+        // Handle port disconnection
+        const disconnectHandler = () => {
+          if (!isCompleted) {
+            isCompleted = true;
+            const error = createDisconnectionError(
+              "Port disconnected unexpectedly",
+            );
+            logger.endPerformance(messageId, "error", error);
+            logger.error("Port disconnected", { messageId });
+            observer.error(TRPCClientError.from(error));
+          }
+          cleanup();
+        };
+
+        // Cleanup function
+        const cleanup = () => {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = undefined;
+          }
+          port.onMessage.removeListener(messageHandler);
+          port.onDisconnect.removeListener(disconnectHandler);
+        };
+
+        // Setup listeners
         port.onMessage.addListener(messageHandler);
+        port.onDisconnect.addListener(disconnectHandler);
 
         // Send the message
+        logger.logMessage("send", trpcMessage);
         port.postMessage(extensionMessage);
+
+        // Start timeout after sending
+        setupTimeout();
 
         // Handle subscription stop
         if (op.type === "subscription") {
           return () => {
-            const stopMessage: ExtensionMessage = {
-              trpc: {
-                id: messageId,
-                jsonrpc: "2.0",
-                method: "subscription.stop",
-              },
-            };
-            port.postMessage(stopMessage);
-            port.onMessage.removeListener(messageHandler);
+            if (!isCompleted) {
+              isCompleted = true;
+              const stopMessage: ExtensionMessage = {
+                trpc: {
+                  id: messageId,
+                  jsonrpc: "2.0",
+                  method: "subscription.stop",
+                },
+              };
+              logger.debug("Stopping subscription", { messageId });
+              port.postMessage(stopMessage);
+            }
+            cleanup();
           };
         }
 
         // Cleanup for non-subscriptions
         return () => {
-          port.onMessage.removeListener(messageHandler);
+          isCompleted = true;
+          cleanup();
         };
       });
     };
@@ -160,7 +258,15 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
     createContext,
     onError,
     transformer = defaultTransformer,
+    debug,
   } = options;
+
+  const logger = createDebugger({
+    enabled: debug?.enabled,
+    level: debug?.level as DebugLevel | undefined,
+    logPerformance: debug?.logPerformance,
+    prefix: "[tRPC Handler]",
+  });
 
   // Create caller factory using stable API
   const createCaller = t.createCallerFactory(router);
@@ -168,18 +274,33 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
   // Listen for incoming connections
   chrome.runtime.onConnect.addListener((port) => {
     const subscriptions = new Map<string, Unsubscribable>();
+    logger.info("Port connected", { name: port.name, sender: port.sender });
 
-    port.onMessage.addListener(async (message: ExtensionMessage) => {
+    const messageHandler = async (message: ExtensionMessage) => {
       const { trpc } = message;
 
-      if (!trpc.id) return;
+      if (!trpc.id) {
+        logger.warn("Received message without ID", message);
+        return;
+      }
+
+      logger.logMessage("receive", trpc);
+      const startTime = performance.now();
 
       // Handle subscription stop
       if (trpc.method === "subscription.stop") {
         const subscription = subscriptions.get(trpc.id);
         if (subscription) {
-          subscription.unsubscribe();
-          subscriptions.delete(trpc.id);
+          try {
+            subscription.unsubscribe();
+            logger.debug("Subscription stopped", { id: trpc.id });
+          } catch (error) {
+            logger.error("Error stopping subscription", { id: trpc.id, error });
+          } finally {
+            subscriptions.delete(trpc.id);
+          }
+        } else {
+          logger.warn("Subscription not found for stop", { id: trpc.id });
         }
         return;
       }
@@ -301,6 +422,14 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
           }
         } catch (cause) {
           const error = getTRPCErrorFromUnknown(cause);
+          const duration = performance.now() - startTime;
+
+          logger.error("Handler error", {
+            id: trpc.id,
+            path,
+            error,
+            duration: `${duration.toFixed(2)}ms`,
+          });
 
           onError?.({
             error,
@@ -311,30 +440,44 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
             req: port,
           });
 
+          const formattedError = formatTRPCError(error, path);
           const response: ExtensionMessage = {
             trpc: {
               id: trpc.id,
-              error: {
-                code: -32603,
-                message: error.message,
-                data: {
-                  code: error.code,
-                  httpStatus: 500,
-                  stack: error.stack,
-                  path,
-                },
-              },
+              error: formattedError,
             },
           };
+          logger.logMessage("send", response.trpc);
           port.postMessage(response);
         }
       }
-    });
+    };
+
+    // Add message listener
+    port.onMessage.addListener(messageHandler);
 
     // Cleanup on disconnect
     port.onDisconnect.addListener(() => {
-      subscriptions.forEach((subscription) => subscription.unsubscribe());
+      logger.info("Port disconnecting, cleaning up subscriptions", {
+        count: subscriptions.size,
+      });
+
+      // Safely unsubscribe all with error handling
+      subscriptions.forEach((subscription, id) => {
+        try {
+          subscription.unsubscribe();
+          logger.trace("Unsubscribed", { id });
+        } catch (error) {
+          logger.error("Error during cleanup", { id, error });
+        }
+      });
+
       subscriptions.clear();
+
+      // Remove message handler
+      port.onMessage.removeListener(messageHandler);
+
+      logger.debug("Port cleanup completed");
     });
   });
 }

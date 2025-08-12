@@ -21,6 +21,13 @@ const trpc = createTRPCClient<AppRouter>({
           return result;
         },
       },
+      // Optional: Request timeout
+      timeout: 30000,
+      // Optional: Debug configuration
+      debug: {
+        enabled: import.meta.env?.DEV ?? false,
+        logPerformance: true,
+      },
     }),
   ],
 });

@@ -15,6 +15,20 @@ export {
   serializeError,
 } from "./core";
 
+// Debug exports
+export { DebugLevel, TRPCDebugger, createDebugger } from "./debug";
+export type { DebugOptions } from "./debug";
+
+// Error handling exports
+export {
+  JSON_RPC_ERROR_CODES,
+  createDisconnectionError,
+  createTimeoutError,
+  formatTRPCError,
+  getHTTPStatusFromTRPCError,
+  getJSONRPCErrorCode,
+} from "./errors";
+
 // tRPC integration exports
 export {
   createExtensionClient,

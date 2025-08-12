@@ -81,6 +81,17 @@ export interface ExtensionLinkOptions {
   portOptions?: PortOptions;
   /** Custom transformer for data serialization */
   transformer?: Transformer;
+  /** Request timeout in milliseconds (default: 30000) */
+  timeout?: number;
+  /** Debug configuration */
+  debug?: {
+    /** Enable debug logging */
+    enabled?: boolean;
+    /** Log performance metrics */
+    logPerformance?: boolean;
+    /** Debug verbosity level (0-5) */
+    level?: number;
+  };
 }
 
 /**
@@ -128,6 +139,15 @@ export interface CreateExtensionHandlerOptions<TRouter extends AnyRouter> {
   }) => void;
   /** Custom data transformer */
   transformer?: Transformer;
+  /** Debug configuration */
+  debug?: {
+    /** Enable debug logging */
+    enabled?: boolean;
+    /** Log performance metrics */
+    logPerformance?: boolean;
+    /** Debug verbosity level (0-5) */
+    level?: number;
+  };
 }
 
 /**

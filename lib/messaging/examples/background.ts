@@ -39,6 +39,13 @@ createExtensionHandler({
       return result;
     },
   },
+
+  // Optional: Debug configuration
+  debug: {
+    enabled: import.meta.env?.DEV ?? false,
+    logPerformance: true,
+    level: 4, // DEBUG level
+  },
 });
 
 // Example: Listen for extension install
