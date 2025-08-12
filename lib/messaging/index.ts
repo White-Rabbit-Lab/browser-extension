@@ -62,7 +62,7 @@ export {
   createWXTClient,
   createWXTHandler,
   getBrowserAPI,
-  isWXTEnvironment,
+  isExtensionEnvironment,
   setupWXTBackground,
   setupWXTClient,
   wxtLink,

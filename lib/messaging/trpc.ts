@@ -2,7 +2,7 @@
  * tRPC v11 integration for browser extensions
  */
 
-/// <reference types="chrome"/>
+// Extension messaging implementation for tRPC
 
 import { TRPCClientError, TRPCLink } from "@trpc/client";
 import {
@@ -16,6 +16,7 @@ import {
   observable,
   Unsubscribable,
 } from "@trpc/server/observable";
+import { getBrowserAPI } from "./adapters/wxt";
 import { generateId } from "./core";
 import { createDebugger, DebugLevel } from "./debug";
 import {
@@ -67,7 +68,7 @@ export function extensionLink<TRouter extends AnyRouter>(
     return ({ op }) => {
       return observable((observer) => {
         const port =
-          options.port || chrome.runtime.connect(options.portOptions);
+          options.port || getBrowserAPI().runtime.connect(options.portOptions);
         const messageId = generateId();
         let timeoutId: NodeJS.Timeout | undefined;
         let isCompleted = false;
@@ -272,7 +273,7 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
   const createCaller = t.createCallerFactory(router);
 
   // Listen for incoming connections
-  chrome.runtime.onConnect.addListener((port) => {
+  getBrowserAPI().runtime.onConnect.addListener((port) => {
     const subscriptions = new Map<string, Unsubscribable>();
     logger.info("Port connected", { name: port.name, sender: port.sender });
 

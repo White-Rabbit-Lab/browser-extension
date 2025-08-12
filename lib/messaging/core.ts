@@ -3,7 +3,9 @@
  * Provides a lightweight, type-safe messaging foundation
  */
 
-/// <reference types="chrome"/>
+// Core messaging for cross-browser extensions
+
+import { getBrowserAPI } from "./adapters/wxt";
 
 /**
  * Message format for extension communication
@@ -283,7 +285,7 @@ export function createMessageHandler(router: MessageRouter) {
  * client.disconnect();
  */
 export function createMessageClient(portName?: string) {
-  const port = chrome.runtime.connect({ name: portName });
+  const port = getBrowserAPI().runtime.connect({ name: portName });
   const connection = new PortConnection(port);
 
   return {

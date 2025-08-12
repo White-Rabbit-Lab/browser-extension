@@ -1,8 +1,7 @@
 /**
  * WXT-specific adapter for tRPC messaging
+ * Cross-browser compatible implementation for WXT
  */
-/// <reference types="chrome"/>
-
 import { createTRPCClient } from "@trpc/client";
 import type { AnyRouter } from "@trpc/server";
 import { createExtensionHandler, extensionLink } from "../trpc";
@@ -12,39 +11,50 @@ import type {
 } from "../types";
 
 /**
- * Detect if running in WXT environment
- * @returns {boolean} True if WXT browser API is available
+ * Detect if running in WebExtension environment
+ * @returns True if browser extension API is available
  * @example
- * if (isWXTEnvironment()) {
- *   // Use WXT-specific features
+ * if (isExtensionEnvironment()) {
+ *   // Use browser extension features
  * }
  */
-export function isWXTEnvironment(): boolean {
+export function isExtensionEnvironment(): boolean {
+  // Check for browser API (Firefox/Safari) or chrome API (Chrome/Edge)
+  // Using chrome type as common interface for both APIs
+  const global = globalThis as {
+    browser?: typeof chrome;
+    chrome?: typeof chrome;
+  };
   return (
-    typeof globalThis !== "undefined" &&
-    "browser" in globalThis &&
-    typeof (globalThis as { browser?: { runtime?: { connect?: unknown } } })
-      .browser?.runtime?.connect === "function"
+    global.browser?.runtime?.id !== undefined ||
+    global.chrome?.runtime?.id !== undefined
   );
 }
 
 /**
  * Get browser API (Chrome or Firefox)
- * @returns {typeof chrome} Browser API object
+ * WXT-compatible implementation based on @wxt-dev/browser
+ * @returns Browser API object
  * @throws {Error} If browser API is not available
  * @example
  * const browser = getBrowserAPI();
  * browser.runtime.connect({ name: "my-port" });
  */
 export function getBrowserAPI(): typeof chrome {
-  const global = globalThis as { browser?: typeof chrome };
-  if (isWXTEnvironment() && global.browser) {
-    return global.browser;
+  // Both browser and chrome APIs follow the same interface (chrome types)
+  const global = globalThis as {
+    browser?: typeof chrome;
+    chrome?: typeof chrome;
+  };
+
+  // WXT-style detection: prefer browser over chrome if available
+  const browser = global.browser?.runtime?.id ? global.browser : global.chrome;
+
+  if (!browser) {
+    throw new Error("Browser API not available");
   }
-  if (typeof chrome !== "undefined" && chrome.runtime) {
-    return chrome;
-  }
-  throw new Error("Browser API not available");
+
+  return browser;
 }
 
 /**
@@ -52,8 +62,8 @@ export function getBrowserAPI(): typeof chrome {
  */
 export interface WXTLinkOptions extends ExtensionLinkOptions {
   /**
-   * Use WXT's browser API instead of chrome API
-   * @default false
+   * @deprecated WXT automatically detects and uses the appropriate browser API
+   * This option is kept for backward compatibility but has no effect
    */
   useWXTBrowser?: boolean;
   /**
@@ -66,8 +76,8 @@ export interface WXTLinkOptions extends ExtensionLinkOptions {
 /**
  * Create WXT-compatible tRPC link
  * @template TRouter - tRPC router type
- * @param {WXTLinkOptions} options - WXT link configuration
- * @returns {TRPCLink<TRouter>} Configured tRPC link
+ * @param options - WXT link configuration
+ * @returns Configured tRPC link
  * @example
  * const link = wxtLink<AppRouter>({
  *   useWXTBrowser: true,
@@ -77,7 +87,8 @@ export interface WXTLinkOptions extends ExtensionLinkOptions {
 export function wxtLink<TRouter extends AnyRouter>(
   options: WXTLinkOptions = {},
 ): ReturnType<typeof extensionLink<TRouter>> {
-  const browser = options.useWXTBrowser ? getBrowserAPI() : chrome;
+  // Always use the detected browser API for WXT compatibility
+  const browser = getBrowserAPI();
 
   // Create port if not provided
   if (!options.port) {
@@ -92,7 +103,7 @@ export function wxtLink<TRouter extends AnyRouter>(
 /**
  * Create WXT-compatible tRPC handler
  * @template TRouter - tRPC router type
- * @param {CreateExtensionHandlerOptions<TRouter>} options - Handler configuration
+ * @param options - Handler configuration
  * @example
  * createWXTHandler({
  *   router: appRouter,
@@ -102,24 +113,16 @@ export function wxtLink<TRouter extends AnyRouter>(
 export function createWXTHandler<TRouter extends AnyRouter>(
   options: CreateExtensionHandlerOptions<TRouter>,
 ) {
-  const browser = getBrowserAPI();
-
-  // Override chrome API with browser API for WXT
-  const originalOnConnect = chrome.runtime.onConnect.addListener;
-  chrome.runtime.onConnect.addListener =
-    browser.runtime.onConnect.addListener.bind(browser.runtime.onConnect);
-
+  // Simply delegate to the extension handler
+  // WXT's browser object is already used via getBrowserAPI in the handler
   createExtensionHandler(options);
-
-  // Restore original
-  chrome.runtime.onConnect.addListener = originalOnConnect;
 }
 
 /**
  * Create WXT tRPC client with pre-configured link
  * @template TRouter - tRPC router type
- * @param {WXTLinkOptions} options - Client configuration options
- * @returns {ReturnType<typeof createTRPCClient>} Configured tRPC client
+ * @param options - Client configuration options
+ * @returns Configured tRPC client
  * @example
  * const client = createWXTClient<AppRouter>({
  *   useWXTBrowser: true
@@ -138,8 +141,8 @@ export function createWXTClient<TRouter extends AnyRouter>(
  * Helper for background script setup
  * Simplifies handler creation in background scripts
  * @template TRouter - tRPC router type
- * @param {TRouter} router - tRPC router instance
- * @param {Omit<CreateExtensionHandlerOptions<TRouter>, "router">} [options] - Additional handler options
+ * @param router - tRPC router instance
+ * @param options - Additional handler options
  * @example
  * // In background.ts
  * setupWXTBackground(appRouter, {
@@ -160,8 +163,8 @@ export function setupWXTBackground<TRouter extends AnyRouter>(
  * Helper for content script / popup setup
  * Creates a ready-to-use tRPC client
  * @template TRouter - tRPC router type
- * @param {WXTLinkOptions} [options] - Client configuration options
- * @returns {ReturnType<typeof createWXTClient>} Configured tRPC client
+ * @param options - Client configuration options
+ * @returns Configured tRPC client
  * @example
  * // In popup or content script
  * const client = setupWXTClient<AppRouter>();
