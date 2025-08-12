@@ -5,13 +5,17 @@
 /// <reference types="chrome"/>
 
 import { TRPCClientError, TRPCLink } from "@trpc/client";
-import { AnyRouter, getTRPCErrorFromUnknown, TRPCError } from "@trpc/server";
+import {
+  AnyRouter,
+  getTRPCErrorFromUnknown,
+  initTRPC,
+  TRPCError,
+} from "@trpc/server";
 import {
   isObservable,
   observable,
   Unsubscribable,
 } from "@trpc/server/observable";
-import { callProcedure } from "@trpc/server/unstable-core-do-not-import";
 import { generateId } from "./core";
 import type {
   CreateExtensionHandlerOptions,
@@ -129,6 +133,15 @@ export function extensionLink<TRouter extends AnyRouter>(
 }
 
 /**
+ * Create tRPC instance for internal use
+ * @internal
+ */
+const t = initTRPC.create({
+  isServer: false,
+  allowOutsideOfServer: true,
+});
+
+/**
  * Create extension handler for tRPC server
  * Sets up port listeners and routes tRPC messages
  * @template TRouter - tRPC router type
@@ -148,6 +161,9 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
     onError,
     transformer = defaultTransformer,
   } = options;
+
+  // Create caller factory using stable API
+  const createCaller = t.createCallerFactory(router);
 
   // Listen for incoming connections
   chrome.runtime.onConnect.addListener((port) => {
@@ -178,14 +194,39 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
         try {
           const deserializedInput = transformer.deserialize(input);
 
-          const result = await callProcedure({
-            router,
-            path,
-            getRawInput: async () => deserializedInput,
-            ctx,
-            type: trpc.method,
-            signal: new AbortController().signal,
-          });
+          // Create a caller with the context
+          const caller = createCaller(ctx);
+
+          // Parse the path and call the procedure
+          const pathParts = path.split(".");
+          let procedure: unknown = caller;
+
+          for (const part of pathParts) {
+            procedure = (procedure as Record<string, unknown>)[part];
+            if (!procedure) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: `Procedure ${path} not found`,
+              });
+            }
+          }
+
+          // Call the procedure based on its type
+          let result: unknown;
+          if (trpc.method === "query" || trpc.method === "mutation") {
+            result = await (procedure as (input: unknown) => Promise<unknown>)(
+              deserializedInput,
+            );
+          } else if (trpc.method === "subscription") {
+            result = await (procedure as (input: unknown) => Promise<unknown>)(
+              deserializedInput,
+            );
+          } else {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown method type: ${trpc.method}`,
+            });
+          }
 
           // Handle subscriptions
           if (trpc.method === "subscription" && isObservable(result)) {
