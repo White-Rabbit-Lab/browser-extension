@@ -1,24 +1,63 @@
 # tRPC v11 Browser Extension Messaging
 
-Type-safe messaging library for Chrome Extensions with custom tRPC v11 implementation
+Type-safe messaging library for Brwoser Extensions with custom tRPC v11 implementation and flexible browser API adapters
 
 ## Features
 
-- **Full type safety**: TypeScript type inference and runtime validation with Zod
-- **tRPC v11 compatible**: Leverages latest tRPC features
-- **Lightweight**: Minimal bundle size (<10KB core)
-- **Tree-shakeable**: Import only what you need
-- **WXT support**: Includes adapter for WXT framework
-- **Easy integration**: Simple to add to existing projects
-- **Error handling**: JSON-RPC 2.0 compliant error formatting
-- **Timeout support**: Configurable request timeouts with automatic cleanup
-- **Debug mode**: Built-in debugging and performance monitoring
-- **Subscription management**: Safe cleanup on port disconnection
+- 🔒 **Full type safety**: TypeScript type inference and runtime validation with Zod
+- ⚡ **tRPC v11 compatible**: Leverages latest tRPC features
+- 🪶 **Lightweight**: Minimal bundle size (<10KB core)
+- 🌳 **Tree-shakeable**: Import only what you need
+- 🌐 **Cross-browser support**: Chrome, Firefox, Safari through flexible adapter system
+- 🔌 **Multiple adapters**: Chrome native, WebExtension Polyfill, WXT framework
+- 🚀 **Easy integration**: Simple to add to existing projects
+- ❌ **Error handling**: JSON-RPC 2.0 compliant error formatting
+- ⏱️ **Timeout support**: Configurable request timeouts with automatic cleanup
+- 🐛 **Debug mode**: Built-in debugging and performance monitoring
+- 🔗 **Subscription management**: Safe cleanup on port disconnection
+
+## Browser Adapters
+
+Choose the appropriate adapter for your extension environment:
+
+### Chrome Adapter
+
+For Chrome extensions using native Chrome APIs:
+
+```typescript
+import { createChromeAdapter } from "@/lib/messaging/adapters/chrome";
+```
+
+### WebExtension Polyfill Adapter
+
+For cross-browser extensions using Mozilla's webextension-polyfill:
+
+```typescript
+import { createPolyfillAdapter } from "@/lib/messaging/adapters/polyfill";
+```
+
+### WXT Adapter
+
+For WXT-based extensions with automatic browser detection:
+
+```typescript
+import { createWXTAdapter } from "@/lib/messaging/adapters/wxt";
+```
 
 ## Installation
 
 ```bash
 pnpm add @trpc/server @trpc/client zod superjson
+
+# Choose one based on your browser support needs:
+# For Chrome only:
+# (no additional dependencies needed)
+
+# For cross-browser support:
+pnpm add webextension-polyfill
+
+# For WXT projects:
+pnpm add wxt
 ```
 
 ## Usage
@@ -60,10 +99,15 @@ export type AppRouter = typeof appRouter;
 ```typescript
 // background/index.ts
 import { createExtensionHandler } from "@/lib/messaging";
+import { createChromeAdapter } from "@/lib/messaging/adapters/chrome";
 import { appRouter } from "./router";
 import superjson from "superjson";
 
+// Create browser adapter
+const adapter = createChromeAdapter();
+
 createExtensionHandler({
+  adapter, // 🚨 REQUIRED: Adapter is now mandatory
   router: appRouter,
   transformer: {
     serialize: (data) => superjson.serialize(data),
@@ -87,12 +131,17 @@ createExtensionHandler({
 // popup/trpc.ts
 import { createTRPCClient } from "@trpc/client";
 import { extensionLink } from "@/lib/messaging";
+import { createChromeAdapter } from "@/lib/messaging/adapters/chrome";
 import type { AppRouter } from "../background/router";
 import superjson from "superjson";
+
+// Create browser adapter
+const adapter = createChromeAdapter();
 
 export const trpc = createTRPCClient<AppRouter>({
   links: [
     extensionLink({
+      adapter, // 🚨 REQUIRED: Adapter is now mandatory
       transformer: {
         serialize: (data) => superjson.serialize(data),
         deserialize: (data) => superjson.deserialize(data as any),
@@ -117,6 +166,7 @@ import { trpc } from "./trpc";
 
 function App() {
   const handleSave = async () => {
+    // All tRPC operations now use the adapter under the hood
     await trpc.storage.set.mutate({
       key: "settings",
       value: { theme: "dark" },
@@ -134,20 +184,75 @@ function App() {
 
 ```
 lib/messaging/
-├── core.ts              # Generic messaging system
-├── trpc.ts              # tRPC v11 integration layer
-├── types.ts             # Type definitions
-├── errors.ts            # Error handling utilities
-├── debug.ts             # Debug and performance monitoring
-├── adapters/
-│   └── wxt.ts          # WXT framework adapter
-├── examples/            # Usage examples
-│   ├── router.ts       # Router definition example
-│   ├── background.ts   # Background script example
-│   ├── client.ts       # Client example
-│   └── react-usage.tsx # React integration example
-└── index.ts             # Exports
+├── core.ts                    # Generic messaging system
+├── trpc.ts                    # tRPC v11 integration layer
+├── types.ts                   # Type definitions
+├── errors.ts                  # Error handling utilities
+├── debug.ts                   # Debug and performance monitoring
+├── adapters/                  # Browser API adapters
+│   ├── interface.ts          # Adapter interface definitions
+│   ├── chrome.ts             # Chrome native API adapter
+│   ├── polyfill.ts           # WebExtension Polyfill adapter
+│   └── wxt.ts                # WXT framework adapter
+├── examples/                  # Usage examples
+│   ├── router.ts             # Router definition example
+│   ├── background.ts         # Background script example
+│   ├── client.ts             # Client example
+│   ├── react-usage.tsx       # React integration example
+│   └── adapter-usage.ts      # Adapter usage examples
+└── index.ts                   # Exports
 ```
+
+## Adapter Selection Guide
+
+Choose the right adapter for your extension needs:
+
+### Chrome Adapter (`createChromeAdapter`)
+
+**Use when:**
+
+- Building Chrome-only extensions
+- Want maximum performance (no polyfill overhead)
+- Using Chrome-specific APIs
+
+```typescript
+import { createChromeAdapter } from "@/lib/messaging/adapters/chrome";
+const adapter = createChromeAdapter();
+```
+
+### WebExtension Polyfill Adapter (`createPolyfillAdapter`)
+
+**Use when:**
+
+- Need cross-browser support (Chrome, Firefox, Safari)
+- Already using webextension-polyfill in your project
+- Want consistent API across browsers
+
+```typescript
+import { createPolyfillAdapter } from "@/lib/messaging/adapters/polyfill";
+const adapter = createPolyfillAdapter();
+```
+
+### WXT Adapter (`createWXTAdapter`)
+
+**Use when:**
+
+- Building with WXT framework
+- Want automatic browser detection
+- Need seamless WXT integration
+
+```typescript
+import { createWXTAdapter } from "@/lib/messaging/adapters/wxt";
+const adapter = createWXTAdapter();
+```
+
+### Custom Adapter
+
+**Use when:**
+
+- Testing or mocking browser APIs
+- Special environment requirements
+- See [examples/adapter-usage.ts](./examples/adapter-usage.ts) for implementation details
 
 ## Advanced Usage
 
