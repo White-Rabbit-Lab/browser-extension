@@ -90,12 +90,12 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 ### Option 2: trpc-browser
 
 - **メリット**: 既存のtRPCパターンとの親和性、アクティブなメンテナンス
-- **却下理由**: tRPC v10のみサポート、バンドルサイズが比較的大きい傾向（実測要確認）、v11への移行パスが不明確
+- **却下理由**: tRPC v10のみサポート、バンドルサイズが大きい（30-40KB）、v11への移行パスが不明確。2025年8月12日時点でピア依存関係はv10にロックされており、v11に関する公開ロードマップやイシューは存在しない
 
 ### Option 3: trpc-chrome
 
 - **メリット**: 成熟した実装、安定性
-- **却下理由**: 2年以上更新されておらず、tRPC v10のみサポート、メンテナンスリスクが高い
+- **却下理由**: v10のみ（v11サポートは保留中—jlalmes/trpc-chrome#17を参照）、イシューが解決されるまでメンテナンスリスクが残る
 
 ## References
 
@@ -106,3 +106,5 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 - Chrome Extension Messaging API: https://developer.chrome.com/docs/extensions/develop/concepts/messaging
 - tRPC Subscriptions (v11 SSE): https://trpc.io/docs/server/subscriptions
 - WXT Messaging Guide: https://wxt.dev/guide/essentials/messaging
+
+🔄 Revisit this ADR once tRPC v11 support is released in either adapter (on resolution of jlalmes/trpc-chrome#17 or when trpc-browser publishes v11 compatibility).

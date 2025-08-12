@@ -6,7 +6,7 @@ updated: 2025-08-11
 
 ## Executive Summary
 
-This research evaluates type-safe messaging solutions for WXT browser extensions, comparing six major approaches: @webext-core/messaging, trpc-chrome, trpc-browser, custom tRPC v11 implementation, webext-bridge, and Comlink. Based on comprehensive analysis, **@webext-core/messaging** is recommended as the primary solution for its lightweight footprint, native WXT compatibility, and excellent TypeScript support. For teams requiring tRPC v11 features with minimal bundle size, a custom implementation inspired by webext-core's architecture offers an alternative path. Note that both existing tRPC-based solutions (trpc-chrome and trpc-browser) currently only support tRPC v10, not v11.
+This research evaluates type-safe messaging solutions for WXT browser extensions, comparing five primary approaches: @webext-core/messaging, trpc-chrome, trpc-browser, a custom tRPC v11 implementation, and webext-bridge. Comlink is covered as an adjunct for Worker offloading. Based on comprehensive analysis, **@webext-core/messaging** is recommended as the primary solution for its lightweight footprint, native WXT compatibility, and excellent TypeScript support. For teams requiring tRPC v11 features with minimal bundle size, a custom implementation inspired by webext-core's architecture offers an alternative path. Note that both existing tRPC-based solutions (trpc-chrome and trpc-browser) currently only support tRPC v10, not v11.
 
 **Target Audience**: WXT browser extension developers, AI agents implementing browser extension features, Frontend engineers
 
@@ -196,9 +196,9 @@ const message = await client.greeting.query("World");
 
 **Metrics**
 
-- **NPM Weekly Downloads**: 1,000+
-- **GitHub Stars**: 200+
-- **Last Updated**: 2022 (v1.0.0)
+- **NPM Weekly Downloads**: 181
+- **GitHub Stars**: 305
+- **Last Updated**: November 2022 (v1.0.0) — Unmaintained (no active development/maintainer)
 - **TypeScript Support**: Full tRPC v10 type safety
 
 ### Option 3: trpc-browser
@@ -297,45 +297,80 @@ A custom implementation combining webext-core/messaging's lightweight architectu
 **Architecture Design**
 
 ```typescript
-// Custom implementation leveraging webext-core patterns
-// messaging/core.ts
-import { z } from "zod";
-import { initTRPC } from "@trpc/server";
-import { defineGenericMessaging } from "./generic-messaging";
+// messaging/core.ts (v11-compatible implementation)
+import type { AnyRouter } from "@trpc/server";
+import { createTRPCProxyClient, type TRPCLink } from "@trpc/client";
+import { observable } from "@trpc/server/observable";
 
-// Lightweight transport layer inspired by webext-core
-export function defineTRPCMessaging<TRouter extends AnyRouter>() {
-  const messaging = defineGenericMessaging({
-    sendMessage: async (message) => {
-      // Use chrome.runtime.sendMessage with minimal overhead
-      return browser.runtime.sendMessage(message);
-    },
-    addRootListener: (listener) => {
-      browser.runtime.onMessage.addListener(listener);
-    },
-  });
-
-  // tRPC v11 integration layer
+function defineGenericMessaging() {
+  // Thin wrapper over browser.runtime messaging
   return {
-    createHandler: (router: TRouter) => {
-      // Minimal handler that processes tRPC calls
-      messaging.onMessage("trpc", async ({ data }) => {
-        const result = await router.createCaller({})(data);
-        return result;
+    sendMessage: (type: string, data: unknown) =>
+      new Promise<any>((resolve, reject) => {
+        const id = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+        const onMsg = (msg: any) => {
+          if (msg?.id !== id) return;
+          browser.runtime.onMessage.removeListener(onMsg);
+          msg.error ? reject(new Error(msg.error)) : resolve(msg.data);
+        };
+        browser.runtime.onMessage.addListener(onMsg);
+        void browser.runtime.sendMessage({ id, type, data });
+      }),
+    addRootListener: (fn: (msg: any, sender: any) => Promise<any> | any) => {
+      browser.runtime.onMessage.addListener((msg, sender) => fn(msg, sender));
+    },
+  };
+}
+
+export function defineTRPCMessaging<TRouter extends AnyRouter>() {
+  const messaging = defineGenericMessaging();
+
+  // v11-compatible link that returns an observable
+  const link: TRPCLink<TRouter> =
+    () =>
+    ({ op }) =>
+      observable((observer) => {
+        messaging
+          .sendMessage("trpc", op)
+          .then((data) => {
+            observer.next({ result: { data } as any });
+            observer.complete();
+          })
+          .catch((err) => observer.error(err));
+        // Cleanup function (no-op for one-shot messages)
+        return () => {};
+      });
+
+  return {
+    // Server-side (background) handler using router's createCaller API
+    createHandler: (router: TRouter, createContext: () => any = () => ({})) => {
+      messaging.addRootListener(async (msg: any) => {
+        if (msg?.type !== "trpc") return;
+        try {
+          const { type, path, input } = msg.data ?? {};
+          // Use router's createCaller API for proper v11 procedure invocation
+          const caller: any = (router as any).createCaller(createContext());
+          // Navigate to the procedure using the path
+          const proc = path
+            .split(".")
+            .reduce((acc: any, k: string) => acc[k], caller);
+          // Call the appropriate procedure method
+          const data =
+            type === "query"
+              ? await proc.query(input)
+              : type === "mutation"
+                ? await proc.mutate(input)
+                : (() => {
+                    throw new Error(`Unsupported op type: ${type}`);
+                  })();
+          return { id: msg.id, data };
+        } catch (e: any) {
+          return { id: msg.id, error: e?.message ?? "Unknown error" };
+        }
       });
     },
-    createClient: () => {
-      // Lightweight client with type inference
-      return createTRPCProxyClient<TRouter>({
-        links: [
-          customLink({
-            async fetch(input) {
-              return messaging.sendMessage("trpc", input);
-            },
-          }),
-        ],
-      });
-    },
+    // Client-side factory using the v11-compatible link
+    createClient: () => createTRPCProxyClient<TRouter>({ links: [link] }),
   };
 }
 ```
@@ -374,7 +409,10 @@ export type AppRouter = typeof appRouter;
 export const messaging = defineTRPCMessaging<AppRouter>();
 
 // background.ts
-import { messaging, appRouter } from "@/shared/trpc";
+import { appRouter } from "@/shared/trpc";
+import { defineTRPCMessaging } from "@/lib/messaging/core";
+
+const messaging = defineTRPCMessaging<typeof appRouter>();
 messaging.createHandler(appRouter);
 
 // content-script.ts
@@ -497,22 +535,92 @@ const user = await sendMessage("get-user", { id: "123" }, "background");
 - **Last Updated**: Active maintenance
 - **TypeScript Support**: Basic type definitions
 
+### Option 6: Comlink
+
+**Overview**
+
+Comlink is a general-purpose RPC library that makes WebWorkers and other messaging APIs feel like calling local functions. While primarily designed for WebWorker communication, it can be adapted for browser extension messaging.
+
+**Key Features**
+
+- Proxy-based API for transparent RPC calls
+- Support for callbacks and complex object transfers
+- Automatic cleanup and memory management
+- Works with any postMessage-like API
+
+**Implementation Example**
+
+```typescript
+// background.ts
+import * as Comlink from "comlink";
+
+const api = {
+  async getUser(id: string) {
+    return await db.users.get(id);
+  },
+  async updateSettings(settings: Settings) {
+    await db.settings.update(settings);
+  },
+};
+
+// Requires custom adapter for chrome.runtime messaging
+Comlink.expose(api, chromeRuntimeEndpoint());
+
+// content-script.ts
+import * as Comlink from "comlink";
+
+const api = Comlink.wrap<typeof api>(chromeRuntimeEndpoint());
+
+const user = await api.getUser("123"); // Feels like a local call
+```
+
+**Pros**
+
+- Very intuitive proxy-based API
+- Excellent for complex object transfers
+- Well-maintained by Google Chrome Labs
+- Strong TypeScript support
+
+**Cons**
+
+- Not designed specifically for browser extensions
+- Requires custom adapter implementation for chrome.runtime
+- Larger bundle size (15-20KB)
+- Overkill for simple messaging patterns
+- No built-in validation
+
+**Metrics**
+
+- **NPM Weekly Downloads**: 200,000+
+- **GitHub Stars**: 11,000+
+- **Last Updated**: Active maintenance
+- **TypeScript Support**: Full native support
+
+**Why Not Recommended Yet**
+
+While Comlink is an excellent library for general RPC communication, it's not yet recommended for browser extensions because:
+
+1. It requires significant custom adapter code to work with chrome.runtime messaging
+2. The proxy-based approach adds complexity that's unnecessary for most extension use cases
+3. Other solutions like @webext-core/messaging provide better out-of-the-box support for extensions
+4. The bundle size overhead isn't justified for typical extension messaging patterns
+
 ## Comparison Matrix
 
-| Criteria          | @webext-core/messaging | trpc-chrome | trpc-browser | Custom tRPC v11 | webext-bridge |
-| ----------------- | ---------------------- | ----------- | ------------ | --------------- | ------------- |
-| Technical Fit     | Excellent              | Good        | Good         | Excellent       | Good          |
-| Performance       | < 5KB                  | 25-30KB     | 30-40KB      | 8-10KB          | 10KB          |
-| Learning Curve    | Low                    | Medium      | Medium       | High            | Very Low      |
-| Community Support | Active                 | Limited     | Moderate     | None            | Active        |
-| Documentation     | Excellent              | Good        | Good         | Custom          | Good          |
-| Type Safety       | Full                   | Full (v10)  | Full (v10)   | Full (v11)      | Partial       |
-| Bundle Size       | 5KB                    | 30KB        | 40KB         | 10KB            | 10KB          |
-| Maintenance Risk  | Low                    | High        | Medium       | High (initial)  | Low           |
-| tRPC Version      | N/A                    | v10 only    | v10 only     | v11+            | N/A           |
-| Last Update       | Weekly                 | 2022        | Feb 2025     | N/A             | Active        |
-| Zod Integration   | Manual                 | Built-in    | Built-in     | Built-in        | None          |
-| Development Time  | Hours                  | Hours       | Hours        | Days            | Hours         |
+| Criteria          | @webext-core/messaging | trpc-chrome | trpc-browser | Custom tRPC v11 | webext-bridge | Comlink        |
+| ----------------- | ---------------------- | ----------- | ------------ | --------------- | ------------- | -------------- |
+| Technical Fit     | Excellent              | Good        | Good         | Excellent       | Good          | Fair           |
+| Performance       | < 5KB                  | 25-30KB     | 30-40KB      | 8-10KB          | 10KB          | 15-20KB        |
+| Learning Curve    | Low                    | Medium      | Medium       | High            | Very Low      | Low            |
+| Community Support | Active                 | Limited     | Moderate     | None            | Active        | Excellent      |
+| Documentation     | Excellent              | Good        | Good         | Custom          | Good          | Excellent      |
+| Type Safety       | Full                   | Full (v10)  | Full (v10)   | Full (v11)      | Partial       | Full           |
+| Bundle Size       | 5KB                    | 30KB        | 40KB         | 10KB            | 10KB          | 20KB           |
+| Maintenance Risk  | Low                    | High        | Medium       | High (initial)  | Low           | Low            |
+| tRPC Version      | N/A                    | v10 only    | v10 only     | v11+            | N/A           | N/A            |
+| Last Update       | Weekly                 | 2022        | Feb 2025     | N/A             | Active        | Active         |
+| Zod Integration   | Manual                 | Built-in    | Built-in     | Built-in        | None          | None           |
+| Development Time  | Hours                  | Hours       | Hours        | Days            | Hours         | Days (adapter) |
 
 ## Implementation Patterns
 
@@ -713,7 +821,9 @@ sequenceDiagram
 ```typescript
 // lib/messaging/trpc-v11-custom.ts
 import { initTRPC } from "@trpc/server";
-import { createTRPCProxyClient } from "@trpc/client";
+import { createTRPCProxyClient, type TRPCLink } from "@trpc/client";
+import { observable } from "@trpc/server/observable";
+import type { AnyRouter } from "@trpc/server";
 import { z } from "zod";
 import { uid } from "uid";
 
@@ -756,31 +866,55 @@ function createMessaging() {
   return { sendMessage, onMessage };
 }
 
-// tRPC v11 integration
-export function createExtensionTRPC<TRouter>() {
+// tRPC v11 integration with corrected link and server APIs
+export function createExtensionTRPC<TRouter extends AnyRouter>() {
   const messaging = createMessaging();
 
-  return {
-    createHandler: (router: TRouter) => {
-      messaging.onMessage("trpc", async (data) => {
-        // Process tRPC calls with minimal overhead
-        const caller = router.createCaller({});
-        return await caller(data);
+  // v11-compatible link that returns an observable
+  const link: TRPCLink<TRouter> =
+    () =>
+    ({ op }) =>
+      observable((observer) => {
+        messaging
+          .sendMessage("trpc", op)
+          .then((data) => {
+            observer.next({ result: { data } as any });
+            observer.complete();
+          })
+          .catch((err) => observer.error(err));
+        // Cleanup function (no-op for one-shot messages)
+        return () => {};
       });
-    },
 
-    createClient: () => {
-      return createTRPCProxyClient<TRouter>({
-        links: [
-          {
-            request: async ({ op }) => {
-              const result = await messaging.sendMessage("trpc", op);
-              return { result: { data: result } };
-            },
-          },
-        ],
+  return {
+    // Server handler using router's createCaller for v11 compatibility
+    createHandler: (router: TRouter, createContext: () => any = () => ({})) => {
+      messaging.onMessage("trpc", async (data) => {
+        try {
+          const { type, path, input } = data ?? {};
+          // Use router's createCaller API for proper v11 procedure invocation
+          const caller: any = (router as any).createCaller(createContext());
+          // Navigate to the procedure using the path
+          const proc = path
+            .split(".")
+            .reduce((acc: any, k: string) => acc[k], caller);
+          // Call the appropriate procedure method based on type
+          const result =
+            type === "query"
+              ? await proc.query(input)
+              : type === "mutation"
+                ? await proc.mutate(input)
+                : (() => {
+                    throw new Error(`Unsupported op type: ${type}`);
+                  })();
+          return result;
+        } catch (e: any) {
+          throw new Error(e?.message ?? "Unknown error");
+        }
       });
     },
+    // Client factory using the v11-compatible link
+    createClient: () => createTRPCProxyClient<TRouter>({ links: [link] }),
   };
 }
 
@@ -865,9 +999,11 @@ This is the recommended choice for most WXT browser extension projects because:
 
 #### Core Libraries
 
+**Note**: Version numbers are provided as examples and should be verified at implementation time for the latest stable versions.
+
 - **`@webext-core/messaging`**
   - npm package: `@webext-core/messaging`
-  - Version: ^1.4.0
+  - Version: Latest stable version (example: ^1.4.0)
   - Installation: `pnpm add @webext-core/messaging`
   - Purpose: Type-safe messaging between extension contexts
   - Selection reason: Lightweight, WXT-native, excellent TypeScript support
@@ -876,15 +1012,15 @@ This is the recommended choice for most WXT browser extension projects because:
 
 - **`zod`** (optional but recommended)
   - npm package: `zod`
-  - Version: ^3.22.0
+  - Version: Latest stable version (example: ^3.22.0)
   - Purpose: Runtime validation for external data
   - Selection reason: Industry standard, works well with TypeScript
 
 - **`webextension-polyfill`**
   - npm package: `webextension-polyfill`
-  - Version: ^0.10.0
+  - Version: Latest stable version (example: ^0.10.0)
   - Purpose: Cross-browser compatibility
-  - Selection reason: Already included in WXT
+  - Selection reason: Typically included in WXT projects (verify in package.json)
 
 #### Development Tools
 
@@ -927,18 +1063,17 @@ This is the recommended choice for most WXT browser extension projects because:
 ## References
 
 - Related RFC: @docs/architecture/rfc/2025-08-10-browser-extension-i18n-strategy.md
-- WXT Messaging Guide: https://wxt.dev/guide/essentials/messaging
-- @webext-core Documentation: https://webext-core.aklinker1.io/
-- trpc-chrome GitHub: https://github.com/jlalmes/trpc-chrome
-- trpc-browser GitHub: https://github.com/janek26/trpc-browser
-- Chrome Extension Messaging: https://developer.chrome.com/docs/extensions/develop/concepts/messaging
-- Previous Research: @/Users/sotayamashita/Projects/electron-template/docs/research/ipc.md
+- WXT Messaging Guide: <https://wxt.dev/guide/essentials/messaging>
+- @webext-core Documentation: <https://webext-core.aklinker1.io/>
+- trpc-chrome GitHub: <https://github.com/jlalmes/trpc-chrome>
+- trpc-browser GitHub: <https://github.com/janek26/trpc-browser>
+- Chrome Extension Messaging: <https://developer.chrome.com/docs/extensions/develop/concepts/messaging>
 
 ## Appendix
 
 ### Search Queries Used
 
-```
+```text
 "type-safe browser extension messaging 2024 2025"
 "WXT browser extension type-safe messaging communication patterns"
 "webext-core messaging vs trpc-browser vs webext-bridge comparison 2024"
