@@ -23,23 +23,23 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 
 実装アプローチ：
 
-1. **コアメッセージングレイヤー（~2KB）**
+1. **コアメッセージングレイヤー**
    - webext-coreのパターンを参考にした最小限の汎用メッセージング基盤
    - メッセージIDの生成とルーティング
    - エラーのシリアライズ/デシリアライズ
-   - 単一リスナーパターンによる効率的な実装
+   - リスナー設計は実装に依存（単一・複数いずれも可）
 
-2. **tRPC v11統合レイヤー（~3KB）**
+2. **tRPC v11統合レイヤー**
    - tRPC v11のサーバー/クライアント設定
    - カスタムリンク実装
    - 型推論の保持
-   - Zodスキーマ統合（~3-5KB）
+   - Zod等バリデータの統合（バンドル寄与は使用APIとツリーシェイクに依存）
 
 3. **拡張機能固有の機能**
    - タブメッセージングサポート
    - コンテキスト保持
    - サブスクリプション処理
-   - ホットモジュールリプレースメント互換性
+   - 開発時のHMR下での動作に配慮（保証ではない）
 
 実装は `lib/messaging/` ディレクトリに配置し、将来的なライブラリ化を見据えた疎結合な設計とします。
 
@@ -55,7 +55,7 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 
 **lib/messagingの責務：**
 
-- **core.ts**: 汎用メッセージングシステム、単一ルートリスナーパターンの実装
+- **core.ts**: 汎用メッセージングシステム、メッセージのルーティング実装（内部設計は実装に依存）
 - **trpc.ts**: tRPCとブラウザメッセージングの統合、カスタムリンク実装、Observable パターンによる非同期処理
 - **adapters/**: フレームワーク固有のブラウザAPI実装（WXT、Chrome、webextension-polyfill対応）
 
@@ -66,7 +66,7 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 ### ポジティブな影響
 
 - **最新技術スタック**: tRPC v11の最新機能と最適化を活用可能
-- **最小バンドルサイズ**: 10KB未満の実装（既存ソリューションの1/3～1/4）
+- **バンドルサイズ管理**: 実測（例: Vite/webpackのBundle Analyzer等）で継続監視。既存ライブラリより小さくできる可能性はあるが、具体的な数値は計測後に記載する。
 - **完全な型安全性**: TypeScriptの型推論とZodによるランタイム検証
 - **Tree-shakeable**: モジュラーアーキテクチャによる最適化
 - **完全なコントロール**: 実装の詳細を完全に制御可能
@@ -84,13 +84,13 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 
 ### Option 1: @webext-core/messaging
 
-- **メリット**: 極めて軽量（<5KB）、WXTエコシステムとのネイティブ統合
+- **メリット**: 軽量とされ、WXTエコシステムとのネイティブ統合
 - **却下理由**: tRPCの高度な機能（ミドルウェア、バッチング、サブスクリプション）が利用できない。プロジェクトの将来的な要件を考慮すると、より柔軟性の高いソリューションが必要
 
 ### Option 2: trpc-browser
 
 - **メリット**: 既存のtRPCパターンとの親和性、アクティブなメンテナンス
-- **却下理由**: tRPC v10のみサポート、バンドルサイズが大きい（30-40KB）、v11への移行パスが不明確
+- **却下理由**: tRPC v10のみサポート、バンドルサイズが比較的大きい傾向（実測要確認）、v11への移行パスが不明確
 
 ### Option 3: trpc-chrome
 
@@ -104,3 +104,5 @@ WXTブラウザ拡張機能では、異なる実行コンテキスト（backgrou
 - trpc-browser GitHub: https://github.com/janek26/trpc-browser
 - tRPC v11 documentation: https://trpc.io/docs/v11
 - Chrome Extension Messaging API: https://developer.chrome.com/docs/extensions/develop/concepts/messaging
+- tRPC Subscriptions (v11 SSE): https://trpc.io/docs/server/subscriptions
+- WXT Messaging Guide: https://wxt.dev/guide/essentials/messaging
