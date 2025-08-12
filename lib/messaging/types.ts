@@ -75,6 +75,8 @@ export interface PortOptions {
  * Extension link configuration options
  */
 export interface ExtensionLinkOptions {
+  /** Browser API adapter (required) */
+  adapter: import("./adapters/interface").BrowserAdapter;
   /** Existing port to use (creates new if not provided) */
   port?: chrome.runtime.Port;
   /** Options for creating new port */
@@ -118,6 +120,8 @@ export interface Transformer {
  * @template TRouter - tRPC router type
  */
 export interface CreateExtensionHandlerOptions<TRouter extends AnyRouter> {
+  /** Browser API adapter (required) */
+  adapter: import("./adapters/interface").BrowserAdapter;
   /** tRPC router instance */
   router: TRouter;
   /** Context creation function */

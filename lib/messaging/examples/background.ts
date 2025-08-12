@@ -5,11 +5,16 @@
 /// <reference types="chrome"/>
 
 import superjson from "superjson";
+import { createChromeAdapter } from "../adapters/chrome";
 import { createExtensionHandler } from "../trpc";
 import { appRouter } from "./router";
 
+// Create adapter for Chrome extension
+const adapter = createChromeAdapter();
+
 // Setup tRPC handler for background script
 createExtensionHandler({
+  adapter,
   router: appRouter,
 
   // Optional: Create context for each request

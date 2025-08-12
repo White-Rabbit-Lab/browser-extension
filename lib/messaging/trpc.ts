@@ -16,7 +16,6 @@ import {
   observable,
   Unsubscribable,
 } from "@trpc/server/observable";
-import { getBrowserAPI } from "./adapters/wxt";
 import { generateId } from "./core";
 import { createDebugger, DebugLevel } from "./debug";
 import {
@@ -54,7 +53,7 @@ const defaultTransformer: Transformer = {
  * });
  */
 export function extensionLink<TRouter extends AnyRouter>(
-  options: ExtensionLinkOptions = {},
+  options: ExtensionLinkOptions,
 ): TRPCLink<TRouter> {
   return () => {
     const transformer = options.transformer || defaultTransformer;
@@ -67,8 +66,15 @@ export function extensionLink<TRouter extends AnyRouter>(
 
     return ({ op }) => {
       return observable((observer) => {
+        // Use the provided adapter
+        const browserAPI = options.adapter;
+        if (!browserAPI?.runtime?.connect) {
+          throw new Error(
+            "Invalid browser adapter provided. Please provide a valid BrowserAdapter instance.",
+          );
+        }
         const port =
-          options.port || getBrowserAPI().runtime.connect(options.portOptions);
+          options.port || browserAPI.runtime.connect(options.portOptions);
         const messageId = generateId();
         let timeoutId: NodeJS.Timeout | undefined;
         let isCompleted = false;
@@ -111,7 +117,8 @@ export function extensionLink<TRouter extends AnyRouter>(
         };
 
         // Handle responses
-        const messageHandler = (response: ExtensionMessage) => {
+        const messageHandler = (message: unknown) => {
+          const response = message as ExtensionMessage;
           if (response.trpc.id !== messageId) return;
 
           // Clear timeout on response
@@ -255,6 +262,7 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
   options: CreateExtensionHandlerOptions<TRouter>,
 ) {
   const {
+    adapter,
     router,
     createContext,
     onError,
@@ -273,7 +281,12 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
   const createCaller = t.createCallerFactory(router);
 
   // Listen for incoming connections
-  getBrowserAPI().runtime.onConnect.addListener((port) => {
+  if (!adapter?.runtime?.onConnect) {
+    throw new Error(
+      "Invalid browser adapter provided. Please provide a valid BrowserAdapter instance.",
+    );
+  }
+  adapter.runtime.onConnect.addListener((port: chrome.runtime.Port) => {
     const subscriptions = new Map<string, Unsubscribable>();
     logger.info("Port connected", { name: port.name, sender: port.sender });
 
@@ -494,7 +507,7 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
  * });
  */
 export function createExtensionClient<TRouter extends AnyRouter>(
-  options: ExtensionLinkOptions = {},
+  options: ExtensionLinkOptions,
 ) {
   return {
     link: extensionLink<TRouter>(options),

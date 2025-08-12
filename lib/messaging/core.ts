@@ -5,7 +5,7 @@
 
 // Core messaging for cross-browser extensions
 
-import { getBrowserAPI } from "./adapters/wxt";
+import type { BrowserAdapter } from "./adapters/interface";
 
 /**
  * Message format for extension communication
@@ -277,15 +277,26 @@ export function createMessageHandler(router: MessageRouter) {
 
 /**
  * Create a message client for sending requests
+ * @param {BrowserAdapter} adapter - Browser API adapter (required)
  * @param {string} [portName] - Optional port name for identification
  * @returns {Object} Client with send and disconnect methods
  * @example
- * const client = createMessageClient("my-port");
+ * import { createChromeAdapter } from "./adapters/chrome";
+ * const adapter = createChromeAdapter();
+ * const client = createMessageClient(adapter, "my-port");
  * const result = await client.send("greet", "World");
  * client.disconnect();
  */
-export function createMessageClient(portName?: string) {
-  const port = getBrowserAPI().runtime.connect({ name: portName });
+export function createMessageClient(
+  adapter: BrowserAdapter,
+  portName?: string,
+) {
+  if (!adapter?.runtime?.connect) {
+    throw new Error(
+      "Invalid browser adapter provided. Please provide a valid BrowserAdapter instance.",
+    );
+  }
+  const port = adapter.runtime.connect({ name: portName });
   const connection = new PortConnection(port);
 
   return {

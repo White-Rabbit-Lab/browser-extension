@@ -5,13 +5,18 @@
 import { createTRPCClient } from "@trpc/client";
 import { useEffect, useState } from "react";
 import superjson from "superjson";
+import { createChromeAdapter } from "../adapters/chrome";
 import { extensionLink } from "../trpc";
 import type { AppRouter } from "./router";
+
+// Create adapter for Chrome extension
+const adapter = createChromeAdapter();
 
 // Create tRPC client
 const trpc = createTRPCClient<AppRouter>({
   links: [
     extensionLink({
+      adapter,
       transformer: {
         serialize: (data: unknown) => superjson.serialize(data),
         deserialize: (data: unknown) => {

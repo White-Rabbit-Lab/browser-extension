@@ -57,8 +57,31 @@ export type {
   Transformer,
 } from "./types";
 
-// WXT adapter exports
+// Adapter interface exports
+export type {
+  BrowserAdapter,
+  BrowserAdapterOptions,
+  CreateBrowserAdapter,
+  ExtensionPort,
+  PortConnectOptions,
+  RuntimeAPI,
+} from "./adapters/interface";
+
+// Chrome adapter exports
 export {
+  createChromeAdapter,
+  isChromeExtensionEnvironment,
+} from "./adapters/chrome";
+
+// WebExtension Polyfill adapter exports
+export {
+  createPolyfillAdapter,
+  isPolyfillEnvironment,
+} from "./adapters/polyfill";
+
+// WXT adapter exports (maintaining backward compatibility)
+export {
+  createWXTAdapter,
   createWXTClient,
   createWXTHandler,
   getBrowserAPI,
