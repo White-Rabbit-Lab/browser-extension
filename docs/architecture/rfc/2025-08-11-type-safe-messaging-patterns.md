@@ -1,12 +1,12 @@
 ---
 title: Type-Safe Messaging Patterns for WXT Browser Extensions
-status: Completed
-updated: 2025-08-11
+status: Draft - Needs Review
+updated: 2025-08-12
 ---
 
 ## Executive Summary
 
-This research evaluates type-safe messaging solutions for WXT browser extensions, comparing five primary approaches: @webext-core/messaging, trpc-chrome, trpc-browser, a custom tRPC v11 implementation, and webext-bridge. Comlink is covered as an adjunct for Worker offloading. Based on comprehensive analysis, **@webext-core/messaging** is recommended as the primary solution for its lightweight footprint, native WXT compatibility, and excellent TypeScript support. For teams requiring tRPC v11 features with minimal bundle size, a custom implementation inspired by webext-core's architecture offers an alternative path. Note that both existing tRPC-based solutions (trpc-chrome and trpc-browser) currently only support tRPC v10, not v11.
+This research evaluates type-safe messaging solutions for WXT browser extensions, comparing five primary approaches: @webext-core/messaging, trpc-chrome, trpc-browser, a custom tRPC v11 implementation, and webext-bridge. Comlink is briefly covered as a supplementary option for Web Worker communication. Based on comprehensive analysis, **a custom tRPC v11 implementation** is recommended as the primary solution, combining webext-core's lightweight architecture patterns with tRPC v11's advanced features and Zod validation. This approach provides the best balance of minimal bundle size (<10KB core), complete type safety, and access to the latest tRPC capabilities. For teams with simpler requirements or tighter timelines, @webext-core/messaging remains an excellent alternative. Note that both existing tRPC-based solutions (trpc-chrome and trpc-browser) currently only support tRPC v10, not v11.
 
 **Target Audience**: WXT browser extension developers, AI agents implementing browser extension features, Frontend engineers
 
@@ -113,7 +113,7 @@ const user = await sendMessage("getUser", "123"); // user is typed as User
 
 **Pros**
 
-- Extremely lightweight (< 5KB gzipped)
+- Extremely lightweight (< 5KB gzipped, 4.8KB actual)
 - Native integration with WXT ecosystem
 - Simple, intuitive API design
 - Excellent TypeScript support with automatic inference
@@ -198,7 +198,7 @@ const message = await client.greeting.query("World");
 
 - **NPM Weekly Downloads**: 181
 - **GitHub Stars**: 305
-- **Last Updated**: November 2022 (v1.0.0) — Unmaintained (no active development/maintainer)
+- **Last Published**: November 2022 (v1.0.0) — Unmaintained (no active development/maintainer)
 - **TypeScript Support**: Full tRPC v10 type safety
 
 ### Option 3: trpc-browser
@@ -213,7 +213,7 @@ A more actively maintained alternative to trpc-chrome, providing similar tRPC fu
 - Support for queries, mutations, and subscriptions
 - Chrome port connections for persistent connections
 - Window messaging and relay support for injected scripts
-- More recent updates (February 2025)
+- More recent updates than trpc-chrome
 
 **Implementation Example**
 
@@ -277,7 +277,7 @@ const user = await client.user.get.query("123");
 
 - **NPM Weekly Downloads**: 500+
 - **GitHub Stars**: 150+
-- **Last Updated**: February 2025 (v1.4.4)
+- **Last Updated**: January 2024 (v1.4.4)
 - **TypeScript Support**: Full tRPC v10 type safety
 
 ### Option 4: Custom tRPC v11 Implementation (webext-core inspired)
@@ -442,7 +442,7 @@ await client.user.update.mutate({
 
 - Requires initial development effort
 - Needs maintenance and testing
-- Less community support than established libraries
+- No existing community support (requires building from scratch)
 - Potential for bugs in custom implementation
 
 **Implementation Strategy**
@@ -480,7 +480,7 @@ await client.user.update.mutate({
 **Metrics (Estimated)**
 
 - **Bundle Size**: 8-10KB (core + tRPC v11 integration)
-- **Development Time**: 2-3 days initial implementation
+- **Development Time**: 2-3 days for initial implementation
 - **Maintenance**: Ongoing, but minimal after stabilization
 - **Type Safety**: 100% with full IDE support
 
@@ -610,17 +610,17 @@ While Comlink is an excellent library for general RPC communication, it's not ye
 | Criteria          | @webext-core/messaging | trpc-chrome | trpc-browser | Custom tRPC v11 | webext-bridge | Comlink        |
 | ----------------- | ---------------------- | ----------- | ------------ | --------------- | ------------- | -------------- |
 | Technical Fit     | Excellent              | Good        | Good         | Excellent       | Good          | Fair           |
-| Performance       | < 5KB                  | 25-30KB     | 30-40KB      | 8-10KB          | 10KB          | 15-20KB        |
+| Performance       | < 5KB (4.8KB)          | 25-30KB     | 30-40KB      | 8-10KB          | 10KB          | 15-20KB        |
 | Learning Curve    | Low                    | Medium      | Medium       | High            | Very Low      | Low            |
-| Community Support | Active                 | Limited     | Moderate     | None            | Active        | Excellent      |
+| Community Support | Active                 | Limited     | Moderate     | None (initial)  | Active        | Excellent      |
 | Documentation     | Excellent              | Good        | Good         | Custom          | Good          | Excellent      |
 | Type Safety       | Full                   | Full (v10)  | Full (v10)   | Full (v11)      | Partial       | Full           |
-| Bundle Size       | 5KB                    | 30KB        | 40KB         | 10KB            | 10KB          | 20KB           |
+| Bundle Size       | < 5KB (4.8KB)          | 30KB        | 40KB         | 8-10KB          | 10KB          | 20KB           |
 | Maintenance Risk  | Low                    | High        | Medium       | High (initial)  | Low           | Low            |
 | tRPC Version      | N/A                    | v10 only    | v10 only     | v11+            | N/A           | N/A            |
-| Last Update       | Weekly                 | 2022        | Feb 2025     | N/A             | Active        | Active         |
+| Last Update       | Weekly                 | 2022        | Jan 2024     | N/A             | Active        | Active         |
 | Zod Integration   | Manual                 | Built-in    | Built-in     | Built-in        | None          | None           |
-| Development Time  | Hours                  | Hours       | Hours        | Days            | Hours         | Days (adapter) |
+| Development Time  | Hours                  | Hours       | Hours        | 2-3 days        | Hours         | Days (adapter) |
 
 ## Implementation Patterns
 
@@ -801,19 +801,19 @@ createChromeHandler({
 ```mermaid
 sequenceDiagram
     participant CS as Content Script
-    participant Link as Custom Link
+    participant CL as Custom Link
     participant Handler as tRPC Handler
     participant Router as tRPC Router
     participant Zod as Zod Validator
 
-    CS->>Link: client.user.get('123')
-    Link->>Handler: sendMessage('trpc', payload)
+    CS->>CL: client.user.get('123')
+    CL->>Handler: sendMessage('trpc', payload)
     Handler->>Router: Process tRPC call
     Router->>Zod: Validate input
     Zod-->>Router: Validated data
     Router-->>Handler: Result
-    Handler-->>Link: Type-safe response
-    Link-->>CS: User object
+    Handler-->>CL: Type-safe response
+    CL-->>CS: User object
 ```
 
 #### Implementation
@@ -962,59 +962,67 @@ export type AppRouter = typeof appRouter;
 
 ```mermaid
 graph TD
-    A[Start] --> B{Bundle size critical?}
-    B -->|Yes < 10KB| C[webext-core/messaging]
-    B -->|No| D{Complex RPC needs?}
-    D -->|Yes| E{Need tRPC v11?}
-    E -->|Yes| F{Custom dev resources?}
-    F -->|Yes| G[Custom tRPC v11]
-    F -->|No| C
-    E -->|No| H{Team knows tRPC?}
-    H -->|Yes| I[trpc-browser]
-    H -->|No| J{Time to learn?}
-    J -->|Yes| I
-    J -->|No| C
-    D -->|No| K{Type safety required?}
-    K -->|Yes| C
-    K -->|No| L[webext-bridge]
+    A[Start] --> B{Complex RPC needs?}
+    B -->|Yes| C{Need latest tRPC features?}
+    C -->|Yes| D[Custom tRPC v11]
+    C -->|No| E{Already using tRPC v10?}
+    E -->|Yes| F[trpc-browser]
+    E -->|No| G{Dev time available?}
+    G -->|2-3 days| D
+    G -->|Hours only| H[webext-core/messaging]
+    B -->|No| I{Type safety critical?}
+    I -->|Yes| J{Bundle size < 5KB?}
+    J -->|Yes| H
+    J -->|No| D
+    I -->|No| K[webext-bridge]
 ```
 
 ## Recommendations
 
 ### Primary Recommendation
 
-**@webext-core/messaging**
+**Custom tRPC v11 Implementation**
 
-This is the recommended choice for most WXT browser extension projects because:
+This is the recommended choice for WXT browser extension projects requiring advanced type-safe messaging because:
 
-1. **Minimal overhead**: At < 5KB, it has virtually no impact on extension size
-2. **WXT ecosystem**: Native integration with other webext-core tools
-3. **Simple yet powerful**: Covers 90% of use cases without complexity
-4. **Excellent DX**: Intuitive API with full TypeScript support
-5. **Future-proof**: Actively maintained as part of the webext-core ecosystem
+1. **Latest tRPC features**: Access to v11's performance optimizations and latest APIs
+2. **Minimal bundle size**: <10KB core implementation with tree-shaking support
+3. **Complete type safety**: Full TypeScript inference with Zod runtime validation
+4. **Full control**: Ability to optimize for specific use cases and requirements
+5. **Future-proof**: Direct control over tRPC version upgrades without waiting for external adapters
+
+The implementation combines the best aspects of webext-core's lightweight messaging patterns with tRPC's powerful RPC capabilities, providing an optimal solution for complex browser extensions.
 
 ### Technologies to Use
 
 **IMPORTANT: These are the ONLY technologies that should be used for this implementation**
 
-#### Core Libraries
+#### Core Libraries for Custom tRPC v11 Implementation
 
 **Note**: Version numbers are provided as examples and should be verified at implementation time for the latest stable versions.
 
-- **`@webext-core/messaging`**
-  - npm package: `@webext-core/messaging`
-  - Version: Latest stable version (example: ^1.4.0)
-  - Installation: `pnpm add @webext-core/messaging`
-  - Purpose: Type-safe messaging between extension contexts
-  - Selection reason: Lightweight, WXT-native, excellent TypeScript support
+- **`@trpc/server`**
+  - npm package: `@trpc/server`
+  - Version: ^11.0.0 or latest v11
+  - Installation: `pnpm add @trpc/server`
+  - Purpose: Server-side RPC handling, router definition
+  - Selection reason: Latest tRPC features and optimizations
 
-#### Supporting Libraries
+- **`@trpc/client`**
+  - npm package: `@trpc/client`
+  - Version: ^11.0.0 or latest v11
+  - Installation: `pnpm add @trpc/client`
+  - Purpose: Client-side RPC calls, proxy client creation
+  - Selection reason: Type-safe client with full v11 compatibility
 
-- **`zod`** (optional but recommended)
+- **`zod`** (required)
   - npm package: `zod`
   - Version: Latest stable version (example: ^3.22.0)
-  - Purpose: Runtime validation for external data
-  - Selection reason: Industry standard, works well with TypeScript
+  - Installation: `pnpm add zod`
+  - Purpose: Schema definition and runtime validation
+  - Selection reason: Industry standard, seamless tRPC integration
+
+#### Supporting Libraries
 
 - **`webextension-polyfill`**
   - npm package: `webextension-polyfill`
@@ -1026,6 +1034,7 @@ This is the recommended choice for most WXT browser extension projects because:
 
 - **TypeScript**: Strict mode enabled for maximum type safety
 - **ESLint**: With typescript-eslint for code quality
+- **Bundle Analyzer**: For monitoring actual bundle size (Vite/webpack)
 
 ### Technologies NOT to Use
 
@@ -1049,16 +1058,14 @@ This is the recommended choice for most WXT browser extension projects because:
 
 ### Alternative Scenarios
 
-- **If team is using tRPC v10**: Consider trpc-browser (actively maintained) or trpc-chrome (stable but old)
-- **If team needs tRPC v11**: Consider custom implementation combining webext-core patterns with tRPC v11
-  - Best for: Teams with development resources and specific v11 feature requirements
-  - Implementation time: 2-3 days initial development
-  - Long-term benefit: Full control and optimization potential
-- **If bundle size and type safety are both critical**: Custom tRPC v11 implementation offers the best balance
-  - Achieves < 10KB bundle size with full tRPC features
-  - Requires upfront investment but provides optimal results
+- **If simpler requirements or tighter timelines**: @webext-core/messaging remains an excellent choice
+  - Best for: Teams needing quick implementation with good type safety
+  - Bundle size: < 5KB (4.8KB actual)
+  - Implementation time: Hours instead of days
+- **If team is already using tRPC v10**: Consider trpc-browser (actively maintained) or trpc-chrome (stable but old)
+  - Note: Migration to v11 will eventually be needed
 - **If type safety is not critical and simplicity is paramount**: Consider webext-bridge for its ease of use
-- **If heavy computation is needed**: Consider adding Comlink for Web Worker integration alongside chosen messaging solution
+- **If heavy computation is needed**: Consider adding Comlink specifically for Web Worker integration alongside your chosen messaging solution (not as a replacement)
 
 ## References
 
@@ -1094,7 +1101,7 @@ Bundle size measurements (minified + gzipped):
 - webext-bridge: 9.2KB
 - Comlink: 1.1KB (Web Worker only)
 
-### Version Compatibility (as of 2025-08-11)
+### Version Compatibility (as of 2025-08-12)
 
 - trpc-chrome v1.0.0: tRPC v10 only (peerDependencies: @trpc/client ^10.0.0)
 - trpc-browser v1.4.4: tRPC v10 only (peerDependencies: @trpc/client ^10.0.0)
