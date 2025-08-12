@@ -358,5 +358,5 @@ npm pack
 
 - `@trpc/server`: ^11.x
 - `@trpc/client`: ^11.x
-- `zod`: Schema validation (optional)
-- `superjson`: Serialization for Date/Map/Set etc. (optional)
+- `zod`: Schema validation (required for type safety)
+- `superjson`: Serialization for Date/Map/Set etc. (required for complex types)
