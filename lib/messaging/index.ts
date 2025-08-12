@@ -84,7 +84,6 @@ export {
   createWXTAdapter,
   createWXTClient,
   createWXTHandler,
-  getBrowserAPI,
   isExtensionEnvironment,
   setupWXTBackground,
   setupWXTClient,

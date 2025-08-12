@@ -54,31 +54,6 @@ export function isExtensionEnvironment(): boolean {
 }
 
 /**
- * Gets the browser API object with WXT-style detection.
- *
- * @deprecated Since version 1.1.0. Use {@link createWXTAdapter} instead.
- *
- * @returns {chrome} Browser API object (Chrome or Firefox)
- *
- * @throws {Error} Throws if browser API is not available
- *
- * @example
- * ```typescript
- * // Deprecated usage
- * const browser = getBrowserAPI();
- * browser.runtime.connect({ name: "my-port" });
- *
- * // Recommended approach
- * const adapter = createWXTAdapter();
- * adapter.runtime.connect({ name: "my-port" });
- * ```
- */
-export function getBrowserAPI(): typeof chrome {
-  const adapter = createWXTAdapter();
-  return adapter as unknown as typeof chrome;
-}
-
-/**
  * Creates a WXT browser API adapter with automatic browser detection.
  *
  * @description
@@ -144,11 +119,6 @@ export function createWXTAdapter(
  * @extends {ExtensionLinkOptions}
  */
 export interface WXTLinkOptions extends ExtensionLinkOptions {
-  /**
-   * @deprecated WXT automatically detects and uses the appropriate browser API
-   * This option is kept for backward compatibility but has no effect
-   */
-  useWXTBrowser?: boolean;
   /**
    * Port name for connection identification
    * @default "wxt-trpc"
