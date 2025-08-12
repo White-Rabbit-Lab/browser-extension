@@ -17,6 +17,9 @@ import { createChromeAdapter } from "../adapters/chrome";
 import { createPolyfillAdapter } from "../adapters/polyfill";
 import { createWXTAdapter } from "../adapters/wxt";
 
+// Import core messaging
+import { createMessageClient } from "../core";
+
 /**
  * Example 1: Using Chrome adapter directly
  * For Chrome extensions that don't need cross-browser compatibility
@@ -175,8 +178,6 @@ export function setupAutoClient<TRouter extends AnyRouter>() {
 /**
  * Example 6: Using adapter with core messaging (non-tRPC)
  */
-import { createMessageClient } from "../core";
-
 export function setupCoreMessaging() {
   // Use Chrome adapter
   const adapter = createChromeAdapter();
