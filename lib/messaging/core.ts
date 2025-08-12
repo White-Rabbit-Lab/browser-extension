@@ -145,9 +145,8 @@ export class PortConnection {
       const handler = this.handlers.get(message.id);
       if (handler) {
         handler(message);
-        if (message.type !== "error") {
-          this.handlers.delete(message.id);
-        }
+        // Always clean up handlers after processing
+        this.handlers.delete(message.id);
       }
     });
 
@@ -251,6 +250,10 @@ export class PortConnection {
  */
 export function createMessageHandler(router: MessageRouter) {
   return (port: chrome.runtime.Port) => {
+    if (!port || typeof port.onMessage?.addListener !== "function") {
+      console.error("Invalid port provided to message handler");
+      return;
+    }
     const connection = new PortConnection(port);
 
     port.onMessage.addListener(async (message: Message) => {

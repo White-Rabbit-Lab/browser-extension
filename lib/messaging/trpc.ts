@@ -134,7 +134,7 @@ export function extensionLink<TRouter extends AnyRouter>(
             const error = response.trpc.error;
             const trcpError = new TRPCError({
               code:
-                (error.data?.code as typeof TRPCError.prototype.code) ||
+                (error.data?.code as typeof TRPCError.prototype.code) ??
                 "INTERNAL_SERVER_ERROR",
               message: error.message,
               cause: error.data,
@@ -337,6 +337,12 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
           let procedure: unknown = caller;
 
           for (const part of pathParts) {
+            if (typeof procedure !== "object" || procedure === null) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: `Procedure ${path} not found - invalid path at ${part}`,
+              });
+            }
             procedure = (procedure as Record<string, unknown>)[part];
             if (!procedure) {
               throw new TRPCError({
@@ -380,17 +386,11 @@ export function createExtensionHandler<TRouter extends AnyRouter>(
               },
               error(error) {
                 const trcpError = getTRPCErrorFromUnknown(error);
+                const formattedError = formatTRPCError(trcpError, path);
                 const response: ExtensionMessage = {
                   trpc: {
                     id: trpc.id,
-                    error: {
-                      code: -32603,
-                      message: trcpError.message,
-                      data: {
-                        code: trcpError.code,
-                        httpStatus: 500,
-                      },
-                    },
+                    error: formattedError,
                   },
                 };
                 port.postMessage(response);

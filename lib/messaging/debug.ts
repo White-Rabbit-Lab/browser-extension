@@ -63,6 +63,8 @@ export class TRPCDebugger {
   private prefix: string;
   private logger: DebugOptions["logger"];
   private performanceEntries: Map<string, PerformanceEntry>;
+  private maxEntries = 100;
+  private entriesOrder: string[] = [];
 
   constructor(options: DebugOptions = {}) {
     const isDev = import.meta.env?.DEV ?? false;
@@ -217,11 +219,12 @@ export class TRPCDebugger {
       this.info("Performance", perfData);
     }
 
-    // Clean up old entries (keep last 100)
-    if (this.performanceEntries.size > 100) {
-      const firstKey = this.performanceEntries.keys().next().value;
-      if (firstKey) {
-        this.performanceEntries.delete(firstKey);
+    // Track order and clean up old entries
+    this.entriesOrder.push(id);
+    if (this.performanceEntries.size > this.maxEntries) {
+      const oldestKey = this.entriesOrder.shift();
+      if (oldestKey) {
+        this.performanceEntries.delete(oldestKey);
       }
     }
   }

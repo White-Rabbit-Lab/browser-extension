@@ -9,14 +9,17 @@
  *
  * @see {@link https://wxt.dev}
  */
-import { createTRPCClient } from "@trpc/client";
-import type { AnyRouter } from "@trpc/server";
-import { createExtensionHandler, extensionLink } from "../trpc";
+import type {
+  BrowserAdapter,
+  BrowserAdapterOptions,
+} from "@/lib/messaging/adapters/interface";
+import { createExtensionHandler, extensionLink } from "@/lib/messaging/trpc";
 import type {
   CreateExtensionHandlerOptions,
   ExtensionLinkOptions,
-} from "../types";
-import type { BrowserAdapter, BrowserAdapterOptions } from "./interface";
+} from "@/lib/messaging/types";
+import { createTRPCClient } from "@trpc/client";
+import type { AnyRouter } from "@trpc/server";
 
 /**
  * Detects if the code is running in a WebExtension environment.
@@ -188,21 +191,23 @@ export function wxtLink<TRouter extends AnyRouter>(
 ): ReturnType<typeof extensionLink<TRouter>> {
   // Adapter must be provided
   if (!options.adapter) {
-    throw new Error(
-      "Browser adapter is required. " +
-        "Please provide an adapter using createWXTAdapter() or another adapter.",
-    );
+    const errorMessage =
+      "Browser adapter is required. Please provide an adapter using createWXTAdapter() or another adapter.";
+    throw new Error(errorMessage);
   }
 
   // Create port if not provided
-  if (!options.port) {
-    options.port = options.adapter.runtime.connect({
+  const port =
+    options.port ||
+    options.adapter.runtime.connect({
       name: options.portName || "wxt-trpc",
     });
-  }
 
-  // Pass the adapter to extensionLink
-  return extensionLink<TRouter>(options);
+  // Pass the adapter to extensionLink with the port
+  return extensionLink<TRouter>({
+    ...options,
+    port,
+  });
 }
 
 /**

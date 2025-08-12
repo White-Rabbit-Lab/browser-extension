@@ -3,6 +3,7 @@
  */
 
 import type { AnyRouter } from "@trpc/server";
+import type { ExtensionPort } from "./adapters/interface";
 
 /**
  * tRPC message format following JSON-RPC 2.0 specification
@@ -139,7 +140,7 @@ export interface CreateExtensionHandlerOptions<TRouter extends AnyRouter> {
     /** Context object */
     ctx?: unknown;
     /** Port that sent the request */
-    req: chrome.runtime.Port;
+    req: ExtensionPort;
   }) => void;
   /** Custom data transformer */
   transformer?: Transformer;

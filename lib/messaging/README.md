@@ -1,6 +1,6 @@
 # tRPC v11 Browser Extension Messaging
 
-Type-safe messaging library for Brwoser Extensions with custom tRPC v11 implementation and flexible browser API adapters
+Type-safe messaging library for Browser Extensions with custom tRPC v11 implementation and flexible browser API adapters
 
 ## Features
 
