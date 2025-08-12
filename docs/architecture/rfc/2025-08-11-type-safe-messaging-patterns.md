@@ -1,7 +1,7 @@
 ---
 title: Type-Safe Messaging Patterns for WXT Browser Extensions
 status: Completed
-updated: 2025-08-12
+updated: 2025-08-11
 ---
 
 ## Executive Summary
