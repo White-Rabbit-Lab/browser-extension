@@ -1,10 +1,15 @@
-  <!--
+<!--
+Prompt to trigger the action:
+TBD
+
 LLM Instructions for Creating Research Document from This Template:
 
 1. FILE CREATION
     - Create new file at: `docs/architecture/researches/{YYYY-MM-DD}-{topic-slug}.md`
     - Format: YYYY-MM-DD = (date +%Y-%m-%d), topic-slug = lowercase-hyphenated-topic
     - Example: `docs/architecture/researches/2024-12-01-ipc-type-safety.md`
+    - Record template version: Use `git rev-parse HEAD` to get current commit hash
+    - Fill in `template_version` field with commit hash or tag version
 
 2. TEMPLATE USAGE
     - Copy entire template content EXCEPT this instruction block
@@ -12,7 +17,32 @@ LLM Instructions for Creating Research Document from This Template:
     - Complete all sections with thorough research findings
     - Remove any unused optional sections
 
-3. RESEARCH METHODOLOGY
+3. SECTION RESPONSIBILITIES
+    Technology Assessment (Library/Solution Level):
+    - Detailed analysis of individual technologies (libraries, frameworks, services)
+    - Basic implementation examples (Hello World level)
+    - Objective pros/cons documentation
+    - Community and package metrics
+
+    Technology Comparative Analysis (Library/Solution Level):
+    - Cross-sectional comparison across all evaluation dimensions
+    - Systematic comparison beyond just features
+    - Technical fit, performance, maintainability metrics
+    - Bundle size and quantitative comparisons
+
+    Implementation Strategies (Implementation Level):
+    - Concrete implementation approaches using selected technologies
+    - Multiple production-ready strategies with data flow diagrams
+    - Detailed code examples with error handling
+    - When to use/avoid scenarios
+
+    Implementation Strategy Selection Guide (Implementation Level):
+    - Guidance for choosing appropriate implementation strategies
+    - Requirements-based strategy selection flowchart
+    - Conditional branching (scale, performance requirements)
+    - Clear decision paths to recommended strategies
+
+4. RESEARCH METHODOLOGY
     Step 1: Information Gathering
     - Context7 MCP: Get latest library documentation (e.g., `/react-query`, `/zustand`)
     - DeepWiki MCP: Analyze repository structure (e.g., `tanstack/query`)
@@ -34,12 +64,14 @@ LLM Instructions for Creating Research Document from This Template:
     - Note information gaps or limitations
     - Use recent information (verify publication dates)
 
-4. CONTENT GUIDELINES
+5. CONTENT GUIDELINES
     Required Elements:
     - Title: Clear, descriptive research topic
     - Status: In Progress | Completed | Archived
+    - Template Version: Git commit hash or tag from template repository
+    - Template Source: Path to source template file
     - Executive Summary: 2-3 sentences, neutral findings only
-    - Comparison Matrix: Systematic evaluation table
+    - Technology Comparative Analysis: Systematic evaluation table
     - Code Examples: Working implementations with error handling
 
     Writing Style:
@@ -49,14 +81,20 @@ LLM Instructions for Creating Research Document from This Template:
     - Libraries: Always in backticks
     - Lists: Prefer bullets over tables for readability
 
-5. IMPORTANT RULES
+    Diagram Guidelines:
+    - Include mermaid diagrams where helpful
+    - For sequenceDiagram: Use "Note" syntax to add explanatory context (e.g., Note over, Note right of)
+    - For sequenceDiagram: Use "box" syntax to group related components logically
+    - Make diagrams self-explanatory with descriptive labels and notes
+
+6. IMPORTANT RULES
     - NO recommendations or "best choice" statements
     - NO subjective opinions or preferences
     - NO bias toward any option
     - Present facts and analysis only
     - Let humans make the decisions
 
-6. QUALITY CHECKLIST
+7. QUALITY CHECKLIST
     Before submitting:
     □ At least 3 options evaluated
     □ All evaluation criteria applied consistently
@@ -71,6 +109,8 @@ LLM Instructions for Creating Research Document from This Template:
 title: {Research topic or question}
 status: {In Progress | Completed | Archived}
 updated: {YYYY-MM-DD}
+template_version: {commit hash}
+template_source: docs/architecture/\_templates/research.md
 
 ---
 
@@ -87,9 +127,10 @@ updated: {YYYY-MM-DD}
 To fully understand the research findings and options presented in this document:
 
 - **{Category Name}**
-  - {Item Name}: {Brief description} - Reference: [{Document Title}]({URL})
-    ...
-    ...
+  - {Item Name}: {Brief description}
+    - Reference: [{Document Title}]({URL})
+      ...
+      ...
 
 ## Problem Statement
 
@@ -105,9 +146,9 @@ To fully understand the research findings and options presented in this document
 - {Security considerations}
 - ...
 
-## Options Analysis
+## Technology Assessment
 
-### Option 1: {Library/Pattern/Solution Name}
+### Option {N}: {Technology/Library/Framework Name}
 
 **Overview**
 {Brief description of the solution}
@@ -142,15 +183,9 @@ To fully understand the research findings and options presented in this document
 - **Package**: Downloads: {number}, Version: {version}
 - **Documentation**: {Complete/Partial/Minimal}
 
-### Option 2: {Library/Pattern/Solution Name}
+{Repeat for each additional options...}
 
-{Repeat same structure as Option 1}
-
-### Option 3: {Library/Pattern/Solution Name}
-
-{Repeat same structure as Option 1}
-
-## Comparison Matrix
+## Technology Comparative Analysis
 
 | Criteria          | Option 1                  | Option 2                  | Option 3                  |
 | ----------------- | ------------------------- | ------------------------- | ------------------------- |
@@ -163,21 +198,9 @@ To fully understand the research findings and options presented in this document
 | Bundle Size       | {size}                    | {size}                    | {size}                    |
 | Maintenance Risk  | {Low/Medium/High}         | {Low/Medium/High}         | {Low/Medium/High}         |
 
-## Decision Flow for Pattern Selection
+## Implementation Strategies
 
-```mermaid
-%%{init: {'theme': 'base'} }%%
-graph TD
-    A[Start] --> B{Condition X?}
-    B -- Yes --> C[Pattern A]
-    B -- No --> D{Condition Y?}
-    D -- Case 1 --> E[Pattern B]
-    D -- Case 2 --> F[Pattern C]
-```
-
-## Implementation Patterns
-
-### Pattern {A|B|...}: {Pattern Name}
+### Strategy {N}: {Strategy Name}
 
 #### Data Flow
 
@@ -205,7 +228,7 @@ sequenceDiagram
 
 ```typescript
 // Detailed implementation example
-{code showing the pattern}
+{code showing the strategy}
 ```
 
 **When to use**:
@@ -223,13 +246,25 @@ sequenceDiagram
 - {Best practice 1}
 - ...
 
-{Repeat for each additional pattern...}
+{Repeat for each additional strategy...}
+
+## Implementation Strategy Selection Guide
+
+```mermaid
+%%{init: {'theme': 'base'} }%%
+graph TD
+    A[Start] --> B{Condition X?}
+    B -- Yes --> C[Strategy A]
+    B -- No --> D{Condition Y?}
+    D -- Case 1 --> E[Strategy B]
+    D -- Case 2 --> F[Strategy C]
+```
 
 ## Analysis Summary
 
 ### Evaluation Results
 
-{Summarize the key findings from the comparison matrix and options analysis without making recommendations}
+{Summarize the key findings from the technology comparative analysis and technology assessment without making recommendations}
 
 ### Key Considerations for Decision Making
 
@@ -241,15 +276,13 @@ sequenceDiagram
 
 ### Trade-offs Analysis
 
-- **Option 1 Trade-offs**
-  - Gains: {What you get}
-  - Costs: {What you sacrifice}
-- **Option 2 Trade-offs**
-  - Gains: {What you get}
-  - Costs: {What you sacrifice}
-- **Option 3 Trade-offs**
-  - Gains: {What you get}
-  - Costs: {What you sacrifice}
+For each option, analyze the gains and costs:
+
+- **Option {N}: {Option Name}**
+  - Gains: {What benefits this option provides}
+  - Costs: {What drawbacks or sacrifices this option requires}
+
+{Repeat for each additional option...}
 
 ### Risk Assessment
 
