@@ -22,6 +22,26 @@ LLM Instructions for Creating Research Document from This Template:
      Core Technologies, Programming Languages, Frameworks & Libraries,
      Tools & Development Environment, Concepts & Patterns, APIs & Services
 
+   Research Methodology Guidelines:
+   a. Information Gathering Process:
+      - Use Context7 MCP for latest library documentation
+      - Use DeepWiki MCP for repository structure analysis
+      - Use WebSearch for current best practices and tutorials
+      - Use npm view for package metadata and statistics
+      - Check GitHub issues for known problems and community solutions
+
+   b. Evaluation Criteria (apply consistently to all options):
+      - Technical Fit (30%): How well it solves the specific problem
+      - Performance (25%): Bundle size, runtime performance, benchmarks
+      - Developer Experience (20%): Learning curve, documentation quality, API design
+      - Maintenance (15%): Update frequency, community size, issue resolution time
+      - Security (10%): Known vulnerabilities, security track record
+
+   c. Documentation Requirements:
+      - Record all sources consulted in Appendix
+      - Include specific queries and commands used
+      - Note any limitations or gaps in available information
+
 4. CONTENT GUIDELINES
    - Title: Clear description of the research topic
    - Status: Must be one of: In Progress, Completed, Archived
@@ -31,12 +51,28 @@ LLM Instructions for Creating Research Document from This Template:
    - Include both pros and cons for each option
    - Present findings objectively without bias
    - Avoid making final recommendations or "best choice" statements
+   - When to use: Describe specific scenarios, conditions, or requirements when this pattern/option should
+  be chosen, such as:
+    - Technical requirements (real-time updates, data complexity, etc)
+    - Performance constraints (latency, memory, throughput, etc)
+    - Architecture considerations (microservices, legacy integration, etc)
+    - Team/project context (timeline, expertise, maintenance, etc)
+   - Best Practices: Provide actionable recommendations for optimal implementation, such as:
+    - Configuration guidelines (recommended settings, parameters, etc)
+    - Common pitfalls to avoid (anti-patterns, performance traps, etc)
+    - Security considerations (authentication, data validation, etc)
+    - Testing strategies (unit tests, integration tests, mocking, etc)
+    - Error handling patterns (retry logic, fallback behavior, etc)
+    - Performance optimizations (caching, lazy loading, batching, etc)
 
 5. LANGUAGE & FORMATTING
    - Write ALL content in English
    - Use "@" notation for internal repository references
    - Use standard URLs for external references
    - Include mermaid diagrams where helpful
+     - For sequenceDiagram: Use "Note" syntax to add explanatory context (e.g., Note over, Note right of)
+     - For sequenceDiagram: Use "box" syntax to group related components logically
+     - Make diagrams self-explanatory with descriptive labels and notes
    - Format code examples with proper syntax highlighting
    - Wrap all library names in backticks
    - Prefer bullet lists over tables for better readability
@@ -87,28 +123,7 @@ To fully understand the research findings and options presented in this document
 - {Performance/scalability needs}
 - {Compatibility requirements}
 - {Security considerations}
-
-### Success Criteria
-
-- {Measurable outcome}
-- {Evaluation metric}
-
-## Research Methodology
-
-### Information Sources
-
-- **Web Search**: {List search queries used}
-- **Documentation Review**: {Official docs, GitHub repos examined with tools like context7}
-- **Community Insights**: {Forums, discussions, issues reviewed}
-- **Code Analysis**: {Repositories analyzed with tools like DeepWiki}
-
-### Evaluation Criteria
-
-1. **Technical Fit**: {How well it solves the problem}
-2. **Performance**: {Speed, efficiency, resource usage}
-3. **Developer Experience**: {Ease of use, learning curve}
-4. **Maintenance**: {Long-term viability, community support}
-5. **Security**: {Security considerations and track record}
+- ...
 
 ## Options Analysis
 
@@ -168,21 +183,42 @@ To fully understand the research findings and options presented in this document
 | Bundle Size       | {size}                    | {size}                    | {size}                    |
 | Maintenance Risk  | {Low/Medium/High}         | {Low/Medium/High}         | {Low/Medium/High}         |
 
+## Decision Flow for Pattern Selection
+
+```mermaid
+%%{init: {'theme': 'base'} }%%
+graph TD
+    A[Start] --> B{Condition X?}
+    B -- Yes --> C[Pattern A]
+    B -- No --> D{Condition Y?}
+    D -- Case 1 --> E[Pattern B]
+    D -- Case 2 --> F[Pattern C]
+```
+
 ## Implementation Patterns
 
-### Pattern A: {Pattern Name}
+### Pattern {A|B|...}: {Pattern Name}
 
 #### Data Flow
 
 ```mermaid
+%%{init: {'theme': 'base'} }%%
 sequenceDiagram
-    participant Component1
-    participant Component2
-    participant Component3
+    box Frontend
+        participant Component1
+    end
+    box Backend Services
+        participant Component2
+        participant Component3
+    end
 
-    Component1->>Component2: Step 1
-    Component2->>Component3: Step 2
-    Component3-->>Component1: Response
+    Note over Component1: User initiates action
+    Component1->>Component2: Step 1: Request data
+    Note right of Component2: Validate request
+    Component2->>Component3: Step 2: Process data
+    Note over Component3: Apply business logic
+    Component3-->>Component1: Response with result
+    Note over Component1,Component3: Complete transaction
 ```
 
 #### Implementation
@@ -194,49 +230,20 @@ sequenceDiagram
 
 **When to use**:
 
-- {Scenario}
-  ...
+- {Scenario 1}
+- ...
+
+**When not to use**:
+
+- {Scenario 1}
+- ...
 
 **Best Practices**:
 
-- {Best practice}
-  ...
+- {Best practice 1}
+- ...
 
-### Pattern B: {Pattern Name}
-
-#### Data Flow
-
-{Similar structure as Pattern A}
-
-#### Implementation
-
-```typescript
-// Detailed implementation example
-{code showing the pattern}
-```
-
-**When to use**:
-
-- {Scenario}
-  ...
-
-**Best Practices**:
-
-- {Best practice}
-  ...
-
-## Decision Flow
-
-```mermaid
-graph TD
-    A[Start] --> B{High Performance Required?}
-    B -->|Yes| C[Consider Option 1]
-    B -->|No| D{Type Safety Critical?}
-    D -->|Yes| E[Consider Option 2]
-    D -->|No| F{Simple Integration Needed?}
-    F -->|Yes| G[Consider Option 3]
-    F -->|No| H[Re-evaluate Requirements]
-```
+{Repeat for each additional pattern...}
 
 ## Analysis Summary
 
@@ -287,9 +294,29 @@ graph TD
 
 ## Appendix
 
+### Information Sources Consulted
+
+- **Context7 MCP**: {Libraries and versions examined - e.g., `/react-query v5`, `/zustand v4.5`}
+- **DeepWiki MCP**: {Repositories analyzed - e.g., `tanstack/query`, `pmndrs/zustand`}
+- **WebSearch**: {Key search queries and findings}
+- **npm view**: {Package metadata commands used}
+- **GitHub Analysis**: {Issues, PRs, and discussions reviewed}
+
 ### Search Queries Used
 
 ```
 {Search Query Used}
 ...
 ```
+
+### Commands Used
+
+```bash
+{npm view commands, git commands, etc.}
+...
+```
+
+### Limitations
+
+- {Any gaps in available information}
+- {Areas requiring further investigation}
