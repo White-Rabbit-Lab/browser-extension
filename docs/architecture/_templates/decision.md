@@ -31,9 +31,9 @@ LLM Instructions for Creating Decision Document from This Template:
 
 4. CONTENT GUIDELINES
    Required Elements:
-   - Title: Clear statement of decision
+   - Title: Clear statement of decision (problem + solution)
    - Status: Proposed | Accepted | Deprecated | Superseded
-   - Template Version: Git commit hash or tag from template repository
+   - Template Version: Git commit hash or tag
    - Template Source: Path to source template file
    - Context with research reference
    - Explicit decision statement
@@ -42,21 +42,21 @@ LLM Instructions for Creating Decision Document from This Template:
 
    Writing Style:
    - Language: English only
-   - Use present tense for decisions ("We will use..." not "We used...")
+   - Tense: Present for decisions ("We will use...")
    - References: @ for internal, URLs for external
    - Code: Proper syntax highlighting
    - Libraries: Always in backticks
-   - Lists: Prefer bullets over tables for readability
+   - Lists: Prefer bullets over tables
 
    Diagram Guidelines:
-   - Include mermaid diagrams where helpful
-   - For sequenceDiagram: Use "Note" syntax to add explanatory context (e.g., Note over, Note right of)
-   - For sequenceDiagram: Use "box" syntax to group related components logically
-   - Make diagrams self-explanatory with descriptive labels and notes
+    - Include mermaid diagrams where helpful
+    - For sequenceDiagram: Use "Note" syntax to add explanatory context (e.g., Note over, Note right of)
+    - For sequenceDiagram: Use "box" syntax to group related components logically
+    - Make diagrams self-explanatory with descriptive labels and notes
 
 5. QUALITY CHECKLIST
    Before submitting:
-   □ Research document properly referenced
+   □ Research document properly referenced with @ link
    □ Decision stated with rationale explaining why chosen over alternatives
    □ Rationale includes trade-off analysis
    □ All alternatives explicitly rejected with reasons
@@ -79,8 +79,6 @@ template_source: docs/architecture/\_templates/decision.md
 
 {Explain the background and problem requiring a decision}
 
-**Research**: See @docs/architecture/researches/{YYYY-MM-DD}-{topic}.md for detailed analysis
-
 ## Decision
 
 **We will use {chosen solution}**
@@ -98,22 +96,20 @@ template_source: docs/architecture/\_templates/decision.md
 ### Positive
 
 - {Benefit 1}
-- {Benefit 2}
+- ...
 
 ### Negative
 
 - {Drawback 1 - and how we'll mitigate it}
-- {Drawback 2 - and how we'll mitigate it}
+- ...
 
 ## Alternatives Considered
 
-### {Alternative 1}
+### {Alternative N}
 
 **Rejected because**: {Specific reason for rejection}
 
-### {Alternative 2}
-
-**Rejected because**: {Specific reason for rejection}
+{Repeat for each alternative Considered...}
 
 ## Implementation Guidelines
 
@@ -124,6 +120,7 @@ template_source: docs/architecture/\_templates/decision.md
 - **`{library-name}`**: {version} - {purpose}
   - Installation: `pnpm add {package-name}`
   - Configuration: {any special setup}
+    ...
 
 ### Technologies NOT to Use
 
@@ -134,5 +131,12 @@ template_source: docs/architecture/\_templates/decision.md
 
 ## References
 
-- Research Document: @docs/architecture/researches/{YYYY-MM-DD}-{topic}.md
-- {Other relevant references}
+### Primary Sources
+
+- **Research Document**: @docs/architecture/researches/{YYYY-MM-DD}-{topic}.md
+- **Related Decision**: {Link to any related decision documents if applicable}
+
+### Update History
+
+- {YYYY-MM-DD}: Initial decision documented
+- {YYYY-MM-DD}: {Any updates or amendments}
