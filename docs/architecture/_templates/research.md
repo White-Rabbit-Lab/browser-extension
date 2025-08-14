@@ -8,7 +8,7 @@ LLM Instructions for Creating Research Document from This Template:
     - Create new file at: `docs/architecture/researches/{YYYY-MM-DD}-{topic-slug}.md`
     - Format: YYYY-MM-DD = (date +%Y-%m-%d), topic-slug = lowercase-hyphenated-topic
     - Example: `docs/architecture/researches/2024-12-01-ipc-type-safety.md`
-    - Record template version: Use `git rev-parse HEAD` to get current commit hash
+    - Record template version: Use `git log -1 --format=%H docs/architecture/_templates/research.md` to get last commit hash of this template
     - Fill in `template_version` field with commit hash or tag version
 
 2. TEMPLATE USAGE
@@ -43,6 +43,11 @@ LLM Instructions for Creating Research Document from This Template:
     - Clear decision paths to recommended strategies
 
 4. RESEARCH METHODOLOGY
+    Step 0: Exclusion Check
+    - Verify none of the options are deprecated or unmaintained
+    - Check against excluded libraries list below
+    - Document why certain libraries were excluded from evaluation
+
     Step 1: Information Gathering
     - Context7 MCP: Get latest library documentation (e.g., `/react-query`, `/zustand`)
     - DeepWiki MCP: Analyze repository structure (e.g., `tanstack/query`)
@@ -93,6 +98,8 @@ LLM Instructions for Creating Research Document from This Template:
     - NO bias toward any option
     - Present facts and analysis only
     - Let humans make the decisions
+    - NEVER evaluate deprecated or unmaintained libraries
+    - Document all excluded options with clear reasons
 
 7. QUALITY CHECKLIST
     Before submitting:
@@ -145,6 +152,23 @@ To fully understand the research findings and options presented in this document
 - {Compatibility requirements}
 - {Security considerations}
 - ...
+
+## Excluded Technologies
+
+### Libraries Not Considered
+
+The following libraries were excluded from evaluation due to critical issues:
+
+**{Library Name}**
+
+- **Reason**: {Deprecated | No longer maintained | Security vulnerabilities | Incompatible with requirements}
+- **Last Update**: {Date of last release or commit}
+- **Known Issues**: {Critical problems that led to exclusion}
+- **Alternative**: {Suggested alternative library if applicable}
+
+{Repeat for each excluded library...}
+
+_Note: Libraries may be excluded for being deprecated, having unaddressed security vulnerabilities, lack of maintenance (>2 years without updates), or fundamental incompatibility with project requirements._
 
 ## Technology Assessment
 
