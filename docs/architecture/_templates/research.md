@@ -1,89 +1,69 @@
-<!--
+  <!--
 LLM Instructions for Creating Research Document from This Template:
 
 1. FILE CREATION
-   - Create new file at: `docs/architecture/researches/{YYYY-MM-DD}-{topic-slug}.md`
-   - Format: YYYY-MM-DD = (date +%Y-%m-%d), topic-slug = lowercase-hyphenated-topic
-   - Example: `docs/architecture/researches/2024-12-01-ipc-type-safety.md`
+    - Create new file at: `docs/architecture/researches/{YYYY-MM-DD}-{topic-slug}.md`
+    - Format: YYYY-MM-DD = (date +%Y-%m-%d), topic-slug = lowercase-hyphenated-topic
+    - Example: `docs/architecture/researches/2024-12-01-ipc-type-safety.md`
 
 2. TEMPLATE USAGE
-   - Copy entire template content EXCEPT this instruction block
-   - Replace all placeholder values marked with {braces}
-   - Complete all sections with thorough research findings
-   - Remove any unused optional sections
+    - Copy entire template content EXCEPT this instruction block
+    - Replace all placeholder values marked with {braces}
+    - Complete all sections with thorough research findings
+    - Remove any unused optional sections
 
-3. RESEARCH PROCESS
-   - Use multiple information sources with tools (WebSearch, Context7, DeepWiki, GitHub)
-   - Compare at least 3 alternatives when possible
-   - Include recent information (check publication dates)
-   - Provide code examples for each pattern
-   - Create comparison matrices for systematic evaluation
-   - For Required Knowledge section, use appropriate categories such as:
-     Core Technologies, Programming Languages, Frameworks & Libraries,
-     Tools & Development Environment, Concepts & Patterns, APIs & Services
+3. RESEARCH METHODOLOGY
+    Step 1: Information Gathering
+    - Context7 MCP: Get latest library documentation (e.g., `/react-query`, `/zustand`)
+    - DeepWiki MCP: Analyze repository structure (e.g., `tanstack/query`)
+    - WebSearch: Find current best practices and tutorials
+    - npm view: Collect package metadata and statistics
+    - GitHub: Review issues for known problems and solutions
 
-   Research Methodology Guidelines:
-   a. Information Gathering Process:
-      - Use Context7 MCP for latest library documentation
-      - Use DeepWiki MCP for repository structure analysis
-      - Use WebSearch for current best practices and tutorials
-      - Use npm view for package metadata and statistics
-      - Check GitHub issues for known problems and community solutions
+    Step 2: Option Evaluation (minimum 3 alternatives)
+    Apply these criteria consistently with weights:
+    - Technical Fit (30%): Problem-solution alignment
+    - Performance (25%): Bundle size, runtime metrics
+    - Developer Experience (20%): Learning curve, API design
+    - Maintenance (15%): Community health, update frequency
+    - Security (10%): Vulnerability track record
 
-   b. Evaluation Criteria (apply consistently to all options):
-      - Technical Fit (30%): How well it solves the specific problem
-      - Performance (25%): Bundle size, runtime performance, benchmarks
-      - Developer Experience (20%): Learning curve, documentation quality, API design
-      - Maintenance (15%): Update frequency, community size, issue resolution time
-      - Security (10%): Known vulnerabilities, security track record
-
-   c. Documentation Requirements:
-      - Record all sources consulted in Appendix
-      - Include specific queries and commands used
-      - Note any limitations or gaps in available information
+    Step 3: Documentation
+    - Record all sources in Appendix section
+    - Include exact commands and queries used
+    - Note information gaps or limitations
+    - Use recent information (verify publication dates)
 
 4. CONTENT GUIDELINES
-   - Title: Clear description of the research topic
-   - Status: Must be one of: In Progress, Completed, Archived
-   - Executive Summary: 2-3 sentence overview of findings (neutral, no recommendations)
-   - Problem Statement: Clear definition of the technical challenge
-   - Evaluation: Use consistent criteria across all options
-   - Include both pros and cons for each option
-   - Present findings objectively without bias
-   - Avoid making final recommendations or "best choice" statements
-   - When to use: Describe specific scenarios, conditions, or requirements when this pattern/option should
-  be chosen, such as:
-    - Technical requirements (real-time updates, data complexity, etc)
-    - Performance constraints (latency, memory, throughput, etc)
-    - Architecture considerations (microservices, legacy integration, etc)
-    - Team/project context (timeline, expertise, maintenance, etc)
-   - Best Practices: Provide actionable recommendations for optimal implementation, such as:
-    - Configuration guidelines (recommended settings, parameters, etc)
-    - Common pitfalls to avoid (anti-patterns, performance traps, etc)
-    - Security considerations (authentication, data validation, etc)
-    - Testing strategies (unit tests, integration tests, mocking, etc)
-    - Error handling patterns (retry logic, fallback behavior, etc)
-    - Performance optimizations (caching, lazy loading, batching, etc)
+    Required Elements:
+    - Title: Clear, descriptive research topic
+    - Status: In Progress | Completed | Archived
+    - Executive Summary: 2-3 sentences, neutral findings only
+    - Comparison Matrix: Systematic evaluation table
+    - Code Examples: Working implementations with error handling
 
-5. LANGUAGE & FORMATTING
-   - Write ALL content in English
-   - Use "@" notation for internal repository references
-   - Use standard URLs for external references
-   - Include mermaid diagrams where helpful
-     - For sequenceDiagram: Use "Note" syntax to add explanatory context (e.g., Note over, Note right of)
-     - For sequenceDiagram: Use "box" syntax to group related components logically
-     - Make diagrams self-explanatory with descriptive labels and notes
-   - Format code examples with proper syntax highlighting
-   - Wrap all library names in backticks
-   - Prefer bullet lists over tables for better readability
-   - Follow architecture writing guidelines: @docs/guides/architecture-writing-guide.md
+    Writing Style:
+    - Language: English only
+    - References: @ for internal, URLs for external
+    - Code: Proper syntax highlighting
+    - Libraries: Always in backticks
+    - Lists: Prefer bullets over tables for readability
 
-6. IMPORTANT
-   - Remove this entire instruction comment block from the new file
-   - Ensure all research is current (check dates)
-   - Include version numbers for libraries/frameworks
-   - Document search queries used for transparency
-   - Save work frequently if research is extensive
+5. IMPORTANT RULES
+    - NO recommendations or "best choice" statements
+    - NO subjective opinions or preferences
+    - NO bias toward any option
+    - Present facts and analysis only
+    - Let humans make the decisions
+
+6. QUALITY CHECKLIST
+    Before submitting:
+    □ At least 3 options evaluated
+    □ All evaluation criteria applied consistently
+    □ Code examples tested and complete
+    □ All sources documented in Appendix
+    □ Neutral tone maintained throughout
+    □ No prescriptive statements included
 -->
 
 ---
