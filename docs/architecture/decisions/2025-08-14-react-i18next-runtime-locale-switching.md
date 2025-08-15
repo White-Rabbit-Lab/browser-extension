@@ -89,10 +89,11 @@ This decision was made based on the following key factors:
 
 ### Primary Sources
 
-- **Research Document**: @docs/architecture/rfc/2025-08-10-browser-extension-i18n-strategy.md
+- **Research Document**: @docs/architecture/rfc/2025-08-10-browser-extension-i18n-pattern.md
 - **Legacy Decision**: @docs/architecture/decisions/2025-08-10-use-react-i18next-for-runtime-locale-switching.md
 
 ### Update History
 
+- 2025-08-15: Change the reference path by changing the name of the research file from which it is referenced
 - 2025-08-14: Initial decision documented using new template format
 - 2025-08-10: Original decision documented (legacy format)
