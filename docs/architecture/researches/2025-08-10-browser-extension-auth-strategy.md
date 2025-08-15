@@ -1187,12 +1187,6 @@ class ServiceWorkerOptimizer {
 - "manifest v3 service worker token storage"
 ```
 
-### パフォーマンスデータ
-
-- launchWebAuthFlow平均応答時間: 2-3秒
-- Offscreen Document作成時間: 100-200ms
-- Firebase認証完了時間: 3-5秒
-
 ### 追加メモ
 
 - MV3への移行期限: 2024年6月（エンタープライズは**2025年6月**）
