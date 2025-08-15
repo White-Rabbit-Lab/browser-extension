@@ -1,7 +1,15 @@
 <!--
 Prompt to trigger the action:
-TBD
 
+First, read @docs/architecture/_templates/research.md to understand the research methodology and requirements.
+Then ask me one question at a time to gather requirements for the research. Once you have enough information, conduct the research following the template's instructions and save
+the document under @docs/architecture/researches/
+
+Use the maximum amount of ultrathink. Take all the time you need. It's much better if you do too much
+research and thinking than not enough.
+-->
+
+<!--
 LLM Instructions for Creating Research Document from This Template:
 
 1. FILE CREATION
@@ -49,6 +57,12 @@ LLM Instructions for Creating Research Document from This Template:
     - Document why certain libraries were excluded from evaluation
 
     Step 1: Information Gathering
+    - Serena MCP: Understand current codebase and existing technologies
+      - Read @CLAUDE.md for project-specific guidelines and tech stack
+      - Use `get_symbols_overview` to analyze file structures
+      - Use `find_symbol` to understand implementation patterns
+      - Use `search_for_pattern` to find usage examples
+      - Review memory files for project context
     - Context7 MCP: Get latest library documentation (e.g., `/react-query`, `/zustand`)
     - DeepWiki MCP: Analyze repository structure (e.g., `tanstack/query`)
     - WebSearch: Find current best practices and tutorials
