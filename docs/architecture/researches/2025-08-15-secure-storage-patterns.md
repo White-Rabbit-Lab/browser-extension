@@ -8,7 +8,7 @@ template_source: docs/architecture/_templates/research.md
 
 ## Executive Summary
 
-Comprehensive analysis of sensitive data storage architectures for browser extensions reveals that a **remote-first approach** is strongly recommended for 2024-2025, with local storage limited to non-sensitive metadata and cached references. Based on security research, 53% of browser extensions can access sensitive data, making local storage vulnerable to XSS attacks and extension compromise. Implementation requires Web Crypto API (AES-GCM) for client-side encryption, zero-knowledge architecture for server storage, and short-lived JWT tokens with OAuth2 PKCE flow for authentication.
+Comprehensive analysis of sensitive data storage architectures for browser extensions reveals that a **remote-first approach** is strongly recommended for 2024-2025, with local storage limited to non-sensitive metadata and cached references. Based on the LayerX Browser Extension Security Report 2025, 53% of enterprise users have installed extensions with 'high' or 'critical' risk scope that can access sensitive data including cookies, passwords, and browsing information, making local storage vulnerable to XSS attacks and extension compromise. Implementation requires Web Crypto API (AES-GCM) for client-side encryption, zero-knowledge architecture (server-side non-decryptable E2EE design) for server storage, and short-lived JWT tokens with OAuth2 PKCE flow for authentication.
 
 **Target Audience**: Technical decision makers and security architects designing browser extension data storage strategies
 
@@ -33,7 +33,7 @@ To fully understand the research findings and options presented in this document
 - **Authentication Protocols**
   - OAuth 2.0 and PKCE: Understanding of authorization code flow with proof key
   - JWT Tokens: Knowledge of access/refresh token patterns
-  - Zero-Knowledge Proofs: Basic understanding of client-side encryption principles
+  - Zero-Knowledge Architecture: Understanding of end-to-end encryption (E2EE) where servers cannot decrypt user data (distinct from Zero-Knowledge Proofs/ZKP cryptographic protocols)
     - Reference: [OAuth 2.0 Security Best Practices](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
 
 ## Problem Statement
@@ -68,12 +68,12 @@ The following approaches were excluded from evaluation due to critical security 
 - **Known Issues**: No encryption, synchronous API, content script access
 - **Alternative**: Remote server storage with encrypted cache
 
-**Certificate Pinning**
+**Certificate Pinning (HPKP)**
 
 - **Reason**: Deprecated practice, more risk than benefit
-- **Last Update**: HPKP deprecated in 2017
-- **Known Issues**: Maintenance burden, certificate rotation problems
-- **Alternative**: Certificate Transparency monitoring
+- **Last Update**: HPKP deprecated in 2017, removed from Chrome 68 in 2018
+- **Known Issues**: Maintenance burden, certificate rotation problems, risk of self-DoS
+- **Alternative**: Certificate Transparency (CT) monitoring as detection mechanism (Note: CT provides detection rather than prevention, and is not a complete replacement for pinning)
 
 **Plain Text Storage**
 
@@ -102,6 +102,8 @@ Store all sensitive data on remote servers with client-side encryption, keeping 
 **Implementation Example**
 
 ```typescript
+// Note: Consider using base64url encoding for large buffers instead of btoa/atob
+// to avoid performance issues with large data
 class RemoteFirstArchitecture {
   private memoryCache = new Map<string, any>();
   private readonly apiEndpoint = "https://api.secure.example.com/v1";
@@ -185,8 +187,10 @@ class RemoteFirstArchitecture {
 
 - **Security Level**: Highest
 - **Implementation Complexity**: High
-- **Performance Impact**: 50-200ms per operation
-- **Infrastructure Cost**: $10-500/month depending on scale
+- **Performance Impact**: 50-200ms per operation (estimated based on typical implementations)\*
+- **Infrastructure Cost**: $10-500/month depending on scale (estimated range)\*
+
+\*Note: Actual performance and costs vary significantly by implementation and scale
 
 ### Option 2: Local-First with Encryption
 
@@ -280,8 +284,10 @@ class LocalEncryptedArchitecture {
 
 - **Security Level**: Medium-High
 - **Implementation Complexity**: Medium
-- **Performance Impact**: 10-50ms per operation
+- **Performance Impact**: 10-50ms per operation (estimated based on typical implementations)\*
 - **Infrastructure Cost**: $0 (local only)
+
+\*Note: Actual performance varies by device capabilities and data size
 
 ### Option 3: Hybrid Architecture
 
@@ -371,8 +377,10 @@ class HybridArchitecture {
 
 - **Security Level**: Medium-High (varies by data)
 - **Implementation Complexity**: Very High
-- **Performance Impact**: 10-200ms (varies by operation)
-- **Infrastructure Cost**: $5-100/month
+- **Performance Impact**: 10-200ms (varies by operation and data location)\*
+- **Infrastructure Cost**: $5-100/month (estimated range)\*
+
+\*Note: Actual performance and costs depend on hybrid architecture design
 
 ## Architecture Comparative Analysis
 
@@ -391,7 +399,9 @@ class HybridArchitecture {
 
 ## Implementation Strategies
 
-### Strategy 1: Zero-Knowledge Remote Storage
+### Strategy 1: Zero-Knowledge Architecture Remote Storage
+
+**Note**: This refers to zero-knowledge architecture (E2EE where servers cannot decrypt data), not Zero-Knowledge Proofs (ZKP cryptographic protocols)
 
 #### Data Flow
 
@@ -446,7 +456,7 @@ class ZeroKnowledgeStrategy {
       {
         name: "PBKDF2",
         salt,
-        iterations: 100000,
+        iterations: 600000, // OWASP 2024 recommendation for PBKDF2-HMAC-SHA256
         hash: "SHA-256",
       },
       keyMaterial,
@@ -504,7 +514,8 @@ class ZeroKnowledgeStrategy {
 
 **Best Practices**:
 
-- Use minimum 100,000 PBKDF2 iterations
+- Use minimum 600,000 PBKDF2 iterations (OWASP 2024 recommendation for PBKDF2-HMAC-SHA256)
+- Consider Argon2id as a modern alternative to PBKDF2
 - Implement key rotation schedules
 - Add rate limiting on server
 - Monitor for suspicious access patterns
@@ -600,8 +611,9 @@ class OAuth2PKCEStrategy {
     const tokens = await tokenResponse.json();
 
     // Store tokens securely (in memory only)
+    // Note: Consider DPoP (RFC 9449) for additional token binding security
     this.accessToken = tokens.access_token;
-    this.refreshToken = tokens.refresh_token;
+    this.refreshToken = tokens.refresh_token; // If using HttpOnly cookies for refresh, ensure SameSite=None; Secure
     this.tokenExpiry = Date.now() + tokens.expires_in * 1000;
   }
 
@@ -780,7 +792,8 @@ class SecureTokenManager {
 
 - Never persist tokens to storage
 - Implement automatic token refresh
-- Use httpOnly cookies for refresh tokens
+- Use httpOnly cookies for refresh tokens (with SameSite=None; Secure for cross-origin)
+- Consider DPoP (RFC 9449) for sender-constrained tokens in public clients
 - Add request retry logic with backoff
 - Clear tokens on logout or errors
 
@@ -835,7 +848,7 @@ The analysis reveals that remote-first architecture provides the highest securit
 - **Compliance Obligations**: Zero-knowledge architecture simplifies GDPR/HIPAA compliance through server-side controls
 - **Performance Constraints**: Local encryption provides 10-50ms operations vs 50-200ms for remote storage
 - **Infrastructure Budget**: Remote storage costs $10-500/month while local storage has zero infrastructure cost
-- **Development Resources**: Remote-first requires 2-3x more development effort than local encrypted storage
+- **Development Resources**: Remote-first requires 2-3x more development effort than local encrypted storage (estimated based on typical projects)
 - **User Experience**: Consider offline requirements and latency tolerance for your specific use case
 
 ### Trade-offs Analysis
@@ -880,7 +893,7 @@ The analysis reveals that remote-first architecture provides the highest securit
 - [ ] **Token Management**: Store tokens in memory only, never persist
 - [ ] **HTTPS Only**: All API communication over TLS 1.3+
 - [ ] **Input Validation**: Sanitize and validate all user inputs
-- [ ] **CSP Headers**: Implement strict Content Security Policy
+- [ ] **CSP Headers**: Implement strict Content Security Policy (Note: MV3 enforces minimum CSP that cannot be relaxed)
 - [ ] **Rate Limiting**: Prevent brute force and abuse
 - [ ] **Audit Logging**: Log all sensitive operations
 - [ ] **Error Handling**: Never leak sensitive information in errors
@@ -911,7 +924,7 @@ The analysis reveals that remote-first architecture provides the highest securit
 
 - [Google Security Blog - Staying Safe with Chrome Extensions (2024)](https://security.googleblog.com/2024/06/staying-safe-with-chrome-extensions.html)
 - [Analysis of Malicious Chrome Extension (2025)](https://palant.info/2025/02/03/analysis-of-an-advanced-malicious-chrome-extension/)
-- [LayerX Browser Security Report 2025](https://go.layerxsecurity.com/enterprise-browser-extension-security-report-2025?_gl=1*1rjjv81*_gcl_au*MTk0OTkzNTQyNC4xNzU1MjMxODEy)
+- [LayerX Browser Security Report 2025](https://go.layerxsecurity.com/enterprise-browser-extension-security-report-2025) - Page 3: "53% of enterprise users have installed a browser extension with 'high' or 'critical' risk scope"
 - [Browser Extension Security Analysis (ACM 2024)](https://dl.acm.org/doi/10.1145/3589334.3645683)
 
 ### Implementation References
@@ -919,7 +932,7 @@ The analysis reveals that remote-first architecture provides the highest securit
 - [MDN Web Crypto API Guide](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
 - [Chrome Identity API Documentation](https://developer.chrome.com/docs/extensions/reference/api/identity)
 - [JWT Best Practices (Curity)](https://curity.io/resources/learn/jwt-best-practices/)
-- [Zero-Knowledge Encryption Guide (2025)](https://blog.uniqkey.eu/zero-knowledge-encryption/)
+- [Zero-Knowledge Architecture/Encryption Guide (2025)](https://blog.uniqkey.eu/zero-knowledge-encryption/) - Note: Refers to E2EE server non-decryptable design, distinct from ZKP
 
 ## Appendix
 
@@ -940,7 +953,7 @@ browser extension secure API communication HTTPS TLS certificate pinning 2024 20
 
 ### Key Statistics
 
-- 53% of browser extensions can access sensitive data (LayerX 2025)
+- 53% of enterprise users have installed extensions with high/critical risk scope (LayerX Browser Extension Security Report 2025, Page 3)
 - 26% of enterprise extensions are sideloaded without vetting
 - 51% of extensions haven't been updated in over a year
 - 7.5% of employees risk data exposure through GenAI tools

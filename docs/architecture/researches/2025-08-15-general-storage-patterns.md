@@ -16,6 +16,8 @@ Comprehensive analysis of browser extension storage APIs reveals five primary st
 
 ## Prerequisites
 
+**Important Note**: Service Workers cannot access localStorage or sessionStorage due to their synchronous nature conflicting with the async-only design of Service Workers. Use chrome.storage API or IndexedDB instead.
+
 ### Required Knowledge
 
 To fully understand the research findings and options presented in this document:
@@ -64,8 +66,9 @@ The following libraries were excluded from evaluation due to critical issues:
 
 - **Reason**: Not available in service workers, fundamental incompatibility with Manifest V3
 - **Last Update**: N/A (native API)
-- **Known Issues**: Service worker context restriction, synchronous API blocking
+- **Known Issues**: Service worker context restriction, synchronous API blocking (Service Workers are designed to be fully async, conflicting with synchronous Web Storage APIs)
 - **Alternative**: Chrome Storage API or IndexedDB
+- **Note**: The Web Storage API (localStorage/sessionStorage) is synchronous and therefore not allowed in service workers
 
 **WebSQL**
 
@@ -96,7 +99,7 @@ Native browser storage API designed specifically for extensions, offering multip
 - Accessible from all extension contexts
 - Built-in change listeners for reactive updates
 - No CORS restrictions
-- Automatic JSON serialization
+- JSON-compatible value serialization (arrays OK, Date/RegExp stringified, functions become {})
 
 **Implementation Example**
 
@@ -136,7 +139,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 - Verbose API requiring boilerplate code
 - No built-in type safety
 - Limited to JSON-compatible types
-- 5MB default limit for local storage
+- 10MB default limit for local storage (Chrome 114+; previously 5MB)
+- chrome.storage.sync has quota limits: ~100KB total, 8KB per item, 512 items max
 - No built-in encryption
 
 **Metrics**
@@ -206,20 +210,22 @@ const unwatch = userData.watch((newData, oldData) => {
 **Cons**
 
 - Requires WXT framework or separate installation
-- Additional dependency (5KB)
+- Additional dependency (~38.2KB unpacked)
 - Still limited by underlying browser storage constraints
 - Learning curve for WXT-specific patterns
 
 **Metrics**
 
 - **Community**: Stars: 2.5k+, Active development
-- **Package**: v0.20.8 (Aug 2025), ~5KB
+- **Package**: @wxt-dev/storage v1.1.1, ~38.2KB unpacked
 - **Documentation**: Good (WXT docs)
 
 ### Option 3: IndexedDB (Native)
 
 **Overview**
 Low-level browser database API for storing significant amounts of structured data with support for indexes and complex queries.
+
+**Important**: Content scripts run in the page context and access the page's IndexedDB (page origin), not the extension's IndexedDB (chrome-extension:// origin). To access the extension's IndexedDB from a content script, use message passing to communicate with the service worker or extension pages.
 
 **Key Features**
 
@@ -260,7 +266,7 @@ const storeData = async (data: any) => {
 
 **Pros**
 
-- Handles large datasets efficiently (10x faster for big objects)
+- Handles large datasets efficiently
 - Support for complex data types without serialization
 - Powerful querying with indexes
 - Unlimited storage with permission
@@ -270,9 +276,9 @@ const storeData = async (data: any) => {
 
 - Complex, verbose API
 - Steep learning curve
-- Content scripts access page's IndexedDB, not extension's
+- Content scripts access page's IndexedDB (page origin), not extension's (chrome-extension:// origin)
 - No built-in synchronization
-- Requires messaging for content script access
+- Requires messaging between content script and service worker for extension's IndexedDB access
 
 **Metrics**
 
@@ -335,7 +341,7 @@ await storage.setItems({
 **Metrics**
 
 - **Community**: 1000+ weekly downloads
-- **Package**: v1.2.0, 50KB unpacked
+- **Package**: v1.2.0, ~50.1KB unpacked
 - **Documentation**: Good (GitHub)
 
 ### Option 5: Dexie.js (IndexedDB Wrapper)
@@ -400,7 +406,7 @@ const recentUsers = await db.users
 
 **Cons**
 
-- Large bundle size (3MB unpacked)
+- Large bundle size (~2.99MB unpacked, though min+gzip is ~29KB)
 - Learning curve for Dexie-specific API
 - Content script limitations (same as IndexedDB)
 - Overkill for simple storage needs
@@ -408,21 +414,23 @@ const recentUsers = await db.users
 **Metrics**
 
 - **Community**: 100k+ websites using it
-- **Package**: v4.0.11 (Aug 2025), 3MB unpacked
+- **Package**: v4.0.11 (Aug 2025), ~2.99MB unpacked (min+gzip ~29KB)
 - **Documentation**: Excellent (dexie.org)
 
 ## Technology Comparative Analysis
 
-| Criteria          | Chrome Storage API | WXT Storage  | IndexedDB | @webext-core | Dexie.js    |
-| ----------------- | ------------------ | ------------ | --------- | ------------ | ----------- |
-| Technical Fit     | Excellent          | Excellent    | Good      | Good         | Good        |
-| Performance       | Fast (<50ms)       | Fast (<50ms) | Very Fast | Fast (<50ms) | Very Fast   |
-| Learning Curve    | Medium             | Low          | High      | Low          | Medium      |
-| Community Support | Official           | Active       | Official  | Moderate     | Very Active |
-| Documentation     | Excellent          | Good         | Excellent | Good         | Excellent   |
-| Type Safety       | None               | Full         | Partial   | Full         | Full        |
-| Bundle Size       | 0KB                | 5KB          | 0KB       | 50KB         | 3MB         |
-| Maintenance Risk  | Low                | Low          | Low       | Medium       | Low         |
+| Criteria          | Chrome Storage API | WXT Storage | IndexedDB | @webext-core | Dexie.js    |
+| ----------------- | ------------------ | ----------- | --------- | ------------ | ----------- |
+| Technical Fit     | Excellent          | Excellent   | Good      | Good         | Good        |
+| Performance       | Good               | Good        | Excellent | Good         | Excellent   |
+| Learning Curve    | Medium             | Low         | High      | Low          | Medium      |
+| Community Support | Official           | Active      | Official  | Moderate     | Very Active |
+| Documentation     | Excellent          | Good        | Excellent | Good         | Excellent   |
+| Type Safety       | None               | Full        | Partial   | Full         | Full        |
+| Bundle Size       | 0KB                | ~38KB       | 0KB       | ~50KB        | ~3MB\*      |
+| Maintenance Risk  | Low                | Low         | Low       | Medium       | Low         |
+
+\* Note: Dexie.js unpacked size is ~2.99MB, but the actual bundle size with min+gzip is ~29KB
 
 ## Implementation Strategies
 
@@ -601,7 +609,7 @@ sequenceDiagram
         participant UI
     end
     box Storage Layer
-        participant Cache as Session Storage
+        participant Cache as chrome.storage.session
         participant Persistent as Chrome Storage
         participant Database as IndexedDB
     end
@@ -739,8 +747,8 @@ The technology comparative analysis reveals three tiers of storage solutions: na
 
 ### Key Considerations for Decision Making
 
-- **Security Architecture**: Remote-first storage is essential for sensitive data (2024-2025 best practice), with local storage reserved for non-sensitive preferences and cached metadata only
-- **Performance Requirements**: IndexedDB and Dexie.js excel at large dataset operations with 10x performance improvements over Chrome Storage for complex objects, while Chrome Storage and WXT Storage provide sub-50ms response times for small operations
+- **Security Architecture**: Remote-first storage is essential for sensitive data (2024-2025 best practice), with local storage reserved for non-sensitive preferences and cached metadata only. All storage solutions require implementing Web Crypto API (AES-GCM) for client-side encryption
+- **Performance Requirements**: IndexedDB and Dexie.js excel at large dataset operations, particularly for complex objects and bulk operations, while Chrome Storage and WXT Storage are optimized for small, frequent operations
 - **Development Experience**: WXT Storage offers the best developer experience with full type safety and intuitive APIs, while native Chrome Storage requires significant boilerplate code
 - **Maintenance Burden**: Native APIs have zero maintenance risk but higher development cost, while third-party wrappers reduce development time but introduce dependency management
 - **Community Support**: Native APIs and Dexie.js have the strongest community support with extensive documentation, while @webext-core/storage shows signs of reduced maintenance activity
@@ -829,10 +837,12 @@ Key topics covered in the dedicated research:
 
 ### Information Sources Consulted
 
+- **Chrome Developer Documentation**: Official Chrome Storage API specifications and quota limits (2025)
+- **MDN Web Docs**: Service Worker API limitations, Web Storage API specifications (2025)
 - **Context7 MCP**: `/wxt-dev/wxt` - WXT framework documentation and storage API examples
 - **DeepWiki MCP**: Not used (focusing on documentation rather than implementation)
 - **WebSearch**: Browser extension storage comparison, WXT framework features, IndexedDB performance analysis
-- **npm view**: Package metadata for @webext-core/storage, webext-storage, dexie
+- **npm view**: Package metadata for @wxt-dev/storage (v1.1.1), @webext-core/storage, dexie (v4.0.11)
 - **GitHub Analysis**: WXT repository issues, storage-related discussions
 
 ### Search Queries Used
