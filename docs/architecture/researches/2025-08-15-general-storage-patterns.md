@@ -784,6 +784,8 @@ For detailed analysis of sensitive data storage architecture patterns, including
 
 **→ @docs/architecture/researches/2025-08-15-secure-storage-patterns.md**
 
+**Related Decision**: @docs/architecture/decisions/2025-08-18-user-preferences-wxt-storage.md
+
 Key topics covered in the dedicated research:
 
 - Remote-first vs local storage architecture decisions
