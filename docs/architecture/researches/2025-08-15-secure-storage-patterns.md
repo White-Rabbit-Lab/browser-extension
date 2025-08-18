@@ -26,7 +26,7 @@ To fully understand the research findings and options presented in this document
 
 - **Cryptography Fundamentals**
   - Symmetric Encryption: Understanding of AES-GCM and authenticated encryption
-  - Key Derivation: Knowledge of PBKDF2 and salt usage
+  - Key Derivation: Knowledge of PBKDF2 (600,000 iterations) and Argon2id (19456 (19 MiB), 2 iterations)
   - Web Crypto API: Experience with browser cryptographic primitives
     - Reference: [Web Crypto API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
 
@@ -73,7 +73,7 @@ The following approaches were excluded from evaluation due to critical security 
 - **Reason**: Deprecated practice, more risk than benefit
 - **Last Update**: HPKP deprecated in 2017, removed from Chrome 68 in 2018
 - **Known Issues**: Maintenance burden, certificate rotation problems, risk of self-DoS
-- **Alternative**: Certificate Transparency (CT) monitoring as detection mechanism (Note: CT provides detection rather than prevention, and is not a complete replacement for pinning)
+- **Alternative**: Certificate Transparency (CT) monitoring for detection (Note: CT provides monitoring/detection, not prevention. Domain owners must configure monitoring and respond to detected issues - not an automatic prevention mechanism)
 
 **Plain Text Storage**
 
@@ -102,8 +102,25 @@ Store all sensitive data on remote servers with client-side encryption, keeping 
 **Implementation Example**
 
 ```typescript
-// Note: Consider using base64url encoding for large buffers instead of btoa/atob
-// to avoid performance issues with large data
+// Helper function for base64url encoding (recommended for large buffers)
+function base64urlEncode(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+function base64urlDecode(str: string): ArrayBuffer {
+  // Add padding if necessary
+  str = (str + "===").slice(0, str.length + (str.length % 4));
+  const binary = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 class RemoteFirstArchitecture {
   private memoryCache = new Map<string, any>();
   private readonly apiEndpoint = "https://api.secure.example.com/v1";
@@ -187,10 +204,10 @@ class RemoteFirstArchitecture {
 
 - **Security Level**: Highest
 - **Implementation Complexity**: High
-- **Performance Impact**: 50-200ms per operation (estimated based on typical implementations)\*
-- **Infrastructure Cost**: $10-500/month depending on scale (estimated range)\*
+- **Performance Impact**: 50-200ms per operation\*
+- **Infrastructure Cost**: $10-500/month depending on scale\*
 
-\*Note: Actual performance and costs vary significantly by implementation and scale
+\*Note: Performance and cost estimates are based on typical implementations and may vary significantly by actual implementation and scale
 
 ### Option 2: Local-First with Encryption
 
@@ -284,10 +301,10 @@ class LocalEncryptedArchitecture {
 
 - **Security Level**: Medium-High
 - **Implementation Complexity**: Medium
-- **Performance Impact**: 10-50ms per operation (estimated based on typical implementations)\*
+- **Performance Impact**: 10-50ms per operation\*
 - **Infrastructure Cost**: $0 (local only)
 
-\*Note: Actual performance varies by device capabilities and data size
+\*Note: Performance estimates are based on typical implementations and may vary by device capabilities and data size
 
 ### Option 3: Hybrid Architecture
 
@@ -378,9 +395,9 @@ class HybridArchitecture {
 - **Security Level**: Medium-High (varies by data)
 - **Implementation Complexity**: Very High
 - **Performance Impact**: 10-200ms (varies by operation and data location)\*
-- **Infrastructure Cost**: $5-100/month (estimated range)\*
+- **Infrastructure Cost**: $5-100/month\*
 
-\*Note: Actual performance and costs depend on hybrid architecture design
+\*Note: Performance and cost estimates are based on typical implementations and may vary by actual hybrid architecture design
 
 ## Architecture Comparative Analysis
 
@@ -399,9 +416,11 @@ class HybridArchitecture {
 
 ## Implementation Strategies
 
-### Strategy 1: Zero-Knowledge Architecture Remote Storage
+### Strategy 1: Server-side Non-decryptable Remote Storage (E2EE)
 
-**Note**: This refers to zero-knowledge architecture (E2EE where servers cannot decrypt data), not Zero-Knowledge Proofs (ZKP cryptographic protocols)
+**Note**: This implementation uses end-to-end encryption (E2EE) where servers cannot decrypt user data. While often marketed as "zero-knowledge architecture," this is distinct from Zero-Knowledge Proofs (ZKP) cryptographic protocols.
+
+**Critical Security Principle**: In server-side non-decryptable architecture, encryption keys are derived from user passwords and never leave the client. The server stores only encrypted data and cannot decrypt it, providing maximum protection against server-side breaches.
 
 #### Data Flow
 
@@ -432,13 +451,13 @@ sequenceDiagram
     API->>Storage: Step 7: Store encrypted
     Storage-->>API: Step 8: Confirmation
     API-->>Extension: Step 9: Storage reference
-    Note over User,Storage: Zero-knowledge achieved
+    Note over User,Storage: Server cannot decrypt data
 ```
 
 #### Implementation
 
 ```typescript
-class ZeroKnowledgeStrategy {
+class ServerNonDecryptableStrategy {
   private masterKey: CryptoKey | null = null;
 
   async initialize(masterPassword: string): Promise<void> {
@@ -478,7 +497,7 @@ class ZeroKnowledgeStrategy {
     );
 
     // Send to server - server never sees plaintext
-    await fetch("/api/zero-knowledge/store", {
+    await fetch("/api/e2ee-storage/store", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -486,8 +505,8 @@ class ZeroKnowledgeStrategy {
       },
       body: JSON.stringify({
         name,
-        encryptedData: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
-        iv: btoa(String.fromCharCode(...iv)),
+        encryptedData: base64urlEncode(encrypted),
+        iv: base64urlEncode(iv.buffer),
         metadata: {
           created: Date.now(),
           algorithm: "AES-GCM-256",
@@ -520,6 +539,8 @@ class ZeroKnowledgeStrategy {
 - Add rate limiting on server
 - Monitor for suspicious access patterns
 - Implement secure key recovery mechanisms
+- **Never store API keys or passwords locally, even encrypted**
+- **Always validate that server cannot decrypt user data**
 
 ### Strategy 2: OAuth2 PKCE Authentication Flow
 
@@ -610,30 +631,26 @@ class OAuth2PKCEStrategy {
 
     const tokens = await tokenResponse.json();
 
-    // Store tokens securely (in memory only)
+    // Store access token in memory only (never persist)
     // Note: Consider DPoP (RFC 9449) for additional token binding security
     this.accessToken = tokens.access_token;
-    this.refreshToken = tokens.refresh_token; // If using HttpOnly cookies for refresh, ensure SameSite=None; Secure
+    // Refresh token should be managed by the server via HttpOnly cookies
+    // Server should set: Set-Cookie: refresh_token=xxx; HttpOnly; Secure; SameSite=None; Path=/
+    // Do NOT store refresh token in JavaScript accessible memory or storage
     this.tokenExpiry = Date.now() + tokens.expires_in * 1000;
   }
 
   private generateCodeVerifier(): string {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return btoa(String.fromCharCode(...array))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
+    return base64urlEncode(array.buffer);
   }
 
   private async generateCodeChallenge(verifier: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(verifier);
     const hash = await crypto.subtle.digest("SHA-256", data);
-    return btoa(String.fromCharCode(...new Uint8Array(hash)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
+    return base64urlEncode(hash);
   }
 }
 ```
@@ -655,9 +672,11 @@ class OAuth2PKCEStrategy {
 
 - Always use PKCE for public clients
 - Implement token rotation
-- Store tokens in memory only
+- **Store access tokens in memory only, never persist**
 - Use short-lived access tokens (5-15 minutes)
-- Implement proper token refresh logic
+- **Use HttpOnly cookies for refresh tokens with SameSite=None; Secure**
+- Implement proper token refresh logic with retry and backoff
+- Clear tokens immediately on logout or authentication errors
 
 ### Strategy 3: Secure Token Management
 
@@ -790,51 +809,109 @@ class SecureTokenManager {
 
 **Best Practices**:
 
-- Never persist tokens to storage
-- Implement automatic token refresh
+- **Never persist tokens to storage (LocalStorage, IndexedDB, or chrome.storage)**
+- Implement automatic token refresh before expiry
 - Use httpOnly cookies for refresh tokens (with SameSite=None; Secure for cross-origin)
 - Consider DPoP (RFC 9449) for sender-constrained tokens in public clients
-- Add request retry logic with backoff
-- Clear tokens on logout or errors
+- Add request retry logic with exponential backoff
+- Clear tokens immediately on logout or authentication errors
+- **Monitor for XSS vulnerabilities that could expose in-memory tokens**
+- **Implement token binding to prevent token theft**
 
 ## Implementation Strategy Selection Guide
+
+### Enhanced Decision Flow
 
 ```mermaid
 %%{init: {'theme': 'base'} }%%
 graph TD
-    A[Start] --> B{What type of data?}
-    B -->|API Keys/Passwords| C[Remote-First Required]
-    B -->|User Preferences| D{Sensitive?}
-    B -->|Session Data| E[Memory Only]
+    Start([Start]) --> DataType{What type of data?}
 
-    D -->|No| R[See General Storage<br/>Patterns Research]
-    D -->|Yes| F{Need offline?}
+    %% API keys and passwords must always be isolated from client-side
+    DataType -->|API Keys/Passwords| Compliance{Regulatory/<br/>High-sensitivity data?}
+    Compliance -->|Yes| ZKRemote[Remote Storage<br/>Server-side Non-decryptable E2EE]
+    Compliance -->|No| EncryptedRemote[Remote Storage<br/>Server-side Encryption]
 
-    R --> S[→ 2025-08-15-general-storage-patterns.md]
+    %% Session tokens should never be persisted, memory only
+    DataType -->|Session Tokens| Ephemeral[Temporary Storage Only<br/>Memory/HttpOnly Cookie]
 
-    F -->|Yes| G[Local Encrypted]
-    F -->|No| H[Remote Storage]
+    %% User preferences
+    DataType -->|User Preferences| SensitivePref{Sensitive data?}
+    SensitivePref -->|No| General[General Storage Patterns<br/>→ general-storage-patterns.md]
+    SensitivePref -->|Yes| NeedOffline{Offline support<br/>required?}
 
-    C --> I{Compliance Required?}
-    I -->|Yes| J[Zero-Knowledge Remote]
-    I -->|No| K[Standard Remote]
+    NeedOffline -->|No| RemotePref[Remote Storage<br/>Encrypted]
+    NeedOffline -->|Yes| NeedSync{Cross-device<br/>sync needed?}
 
-    G --> L{Sync needed?}
-    L -->|Yes| M[Hybrid Approach]
-    L -->|No| N[Local Only]
+    NeedSync -->|No| LocalEnc[Local Encrypted Storage<br/>chrome.storage + AES-GCM]
+    NeedSync -->|Yes| Hybrid[Hybrid Approach<br/>Local Encrypted + Remote Sync]
 
-    J --> O[Implement E2E Encryption]
-    K --> P[Use Server Encryption]
-    M --> Q[Tiered Storage]
-    N --> T[Web Crypto API]
+    %% Connection to implementation strategies
+    ZKRemote --> ImplZK[Implementation:<br/>Server-side Non-decryptable Architecture]
+    EncryptedRemote --> ImplRemote[Implementation:<br/>Remote-First Architecture]
+    Ephemeral --> ImplToken[Implementation:<br/>Secure Token Management]
+    RemotePref --> ImplRemote
+    LocalEnc --> ImplLocal[Implementation:<br/>Local Encrypted Architecture]
+    Hybrid --> ImplHybrid[Implementation:<br/>Hybrid Architecture]
 
-    style C fill:#f9f,stroke:#333,stroke-width:4px
-    style J fill:#f9f,stroke:#333,stroke-width:4px
-    style R fill:#ccffcc,stroke:#00aa00,stroke-width:2px
-    style S fill:#ffffcc,stroke:#ffaa00,stroke-width:2px
+    %% Style definitions to highlight critical data nodes
+    classDef critical fill:#f9f,stroke:#333,stroke-width:4px;
+    classDef caution fill:#ffffcc,stroke:#ffaa00,stroke-width:2px;
+    classDef safe fill:#ccffcc,stroke:#00aa00,stroke-width:2px;
+    classDef impl fill:#e6f3ff,stroke:#0066cc,stroke-width:2px;
+
+    class ZKRemote,EncryptedRemote,Ephemeral critical;
+    class LocalEnc,Hybrid caution;
+    class General safe;
+    class ImplZK,ImplRemote,ImplToken,ImplLocal,ImplHybrid impl;
 ```
 
-**Important Note**: This guide focuses on sensitive data storage. For non-sensitive data storage options (user preferences, cached data, application state), refer to the general storage patterns research document.
+### Decision Matrix
+
+| Data Type                   | Recommended Storage                  | Security Level | Implementation Strategy                  | Rationale                                                                 |
+| --------------------------- | ------------------------------------ | -------------- | ---------------------------------------- | ------------------------------------------------------------------------- |
+| **API Keys/Passwords**      | Remote (Server-side Non-decryptable) | 🔴 Critical    | Server-side Non-decryptable Architecture | Should never be stored client-side. Completely eliminates XSS attack risk |
+| **Session Tokens**          | Memory Only                          | 🔴 Critical    | Secure Token Management                  | Avoid LocalStorage/IndexedDB, manage in HttpOnly cookies or memory        |
+| **Sensitive User Settings** | Context-Dependent                    | 🟡 High        | Local Encrypted / Hybrid                 | Choose based on offline and sync requirements                             |
+| **General User Settings**   | Local                                | 🟢 Low         | General Storage Patterns                 | Non-sensitive data follows standard patterns                              |
+
+### Security Principles
+
+1. **API Keys & Passwords**
+   - Never persist on client-side
+   - Always manage server-side
+   - Server-side non-decryptable encryption recommended (E2EE where server cannot decrypt)
+
+2. **Session Tokens**
+   - Avoid persistent storage to prevent XSS attacks
+   - Manage in memory or HttpOnly cookies
+   - Implement automatic refresh mechanisms
+
+3. **Sensitive User Settings**
+   - Use local encryption only when offline requirements exist
+   - Use AES-GCM (256-bit) or stronger encryption
+   - Use hybrid approach when sync is required
+
+### Quick Decision Guide
+
+```
+Q: API keys or passwords?
+A: → Remote storage (server-side non-decryptable E2EE)
+
+Q: Session tokens?
+A: → Memory only (never persist)
+
+Q: Sensitive user settings + offline required?
+A: → Local encrypted (AES-GCM)
+
+Q: Sensitive user settings + sync required?
+A: → Hybrid (local + remote)
+
+Q: Non-sensitive data?
+A: → See general storage patterns
+```
+
+**Important Note**: This guide focuses on sensitive data storage. For non-sensitive data storage options (user preferences, cached data, application state), refer to the general storage patterns research document @docs/architecture/researches/2025-08-15-general-storage-patterns.md.
 
 ## Analysis Summary
 
@@ -888,9 +965,14 @@ The analysis reveals that remote-first architecture provides the highest securit
 ### Essential Security Measures
 
 - [ ] **No LocalStorage for Sensitive Data**: Never use localStorage or sessionStorage for secrets
-- [ ] **Client-Side Encryption**: Always encrypt before transmission using Web Crypto API
+- [ ] **Session Token Handling**: Store session tokens in memory only or HttpOnly cookies, never in LocalStorage/IndexedDB
+- [ ] **API Keys/Passwords**: Always store on remote server with zero-knowledge encryption, never on client
+- [ ] **Client-Side Encryption**: Always encrypt before transmission using Web Crypto API (AES-GCM 256-bit minimum)
 - [ ] **Zero-Knowledge Design**: Server should not be able to decrypt user data
-- [ ] **Token Management**: Store tokens in memory only, never persist
+- [ ] **Token Management**:
+  - Access tokens: Memory only, 5-15 minutes expiry
+  - Refresh tokens: HttpOnly cookies with SameSite=None; Secure
+  - Never persist tokens to extension storage
 - [ ] **HTTPS Only**: All API communication over TLS 1.3+
 - [ ] **Input Validation**: Sanitize and validate all user inputs
 - [ ] **CSP Headers**: Implement strict Content Security Policy (Note: MV3 enforces minimum CSP that cannot be relaxed)
@@ -900,7 +982,7 @@ The analysis reveals that remote-first architecture provides the highest securit
 
 ### Recommended Additional Measures
 
-- [ ] **Certificate Transparency**: Monitor CT logs for certificate issues
+- [ ] **Certificate Transparency Monitoring**: Monitor CT logs for certificate issues (detection mechanism, not prevention)
 - [ ] **Subresource Integrity**: Verify external resources
 - [ ] **CORS Configuration**: Restrict cross-origin requests
 - [ ] **Security Headers**: X-Frame-Options, X-Content-Type-Options
@@ -915,24 +997,29 @@ The analysis reveals that remote-first architecture provides the highest securit
 
 ### Security Guidelines
 
-- [Chrome Extensions Security Best Practices](https://developer.chrome.com/docs/extensions/develop/security-privacy/stay-secure)
-- [OWASP Browser Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Browser_Security_Cheat_Sheet.html)
-- [Web Crypto API Specification](https://www.w3.org/TR/webcrypto/)
-- [OAuth 2.0 Security Best Current Practice](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
+- [Chrome Extensions Security Best Practices](https://developer.chrome.com/docs/extensions/develop/migrate/improve-security) - Manifest V3 security improvements
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) - 2025 recommendations: Argon2id preferred, PBKDF2-HMAC-SHA256 with 600,000 iterations
+- [Web Crypto API Specification](https://www.w3.org/TR/webcrypto/) - W3C Level 2 specification
+- [OAuth 2.0 Security Best Current Practice (RFC 9700)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics) - IETF January 2025 Best Current Practice (BCP 240)
+- [OAuth 2.0 DPoP (RFC 9449)](https://datatracker.ietf.org/doc/html/rfc9449) - Demonstrating Proof of Possession for sender-constrained tokens
 
 ### Research Sources
 
-- [Google Security Blog - Staying Safe with Chrome Extensions (2024)](https://security.googleblog.com/2024/06/staying-safe-with-chrome-extensions.html)
-- [Analysis of Malicious Chrome Extension (2025)](https://palant.info/2025/02/03/analysis-of-an-advanced-malicious-chrome-extension/)
-- [LayerX Browser Security Report 2025](https://go.layerxsecurity.com/enterprise-browser-extension-security-report-2025) - Page 3: "53% of enterprise users have installed a browser extension with 'high' or 'critical' risk scope"
-- [Browser Extension Security Analysis (ACM 2024)](https://dl.acm.org/doi/10.1145/3589334.3645683)
+- [LayerX Browser Extension Security Report 2025](https://thehackernews.com/2025/04/majority-of-browser-extensions-can.html) - "53% of enterprise users have installed extensions with 'high' or 'critical' risk scope"
+- [Analysis of Advanced Malicious Chrome Extension (2025)](https://palant.info/2025/02/03/analysis-of-an-advanced-malicious-chrome-extension/) - Wladimir Palant's technical analysis
+- [Popular Chrome Extensions Leak API Keys (2025)](https://thehackernews.com/2025/06/popular-chrome-extensions-leak-api-keys.html) - Symantec research on hard-coded credentials
+- [Manifest V3 Security Limitations (2025)](https://www.techradar.com/pro/google-chrome-extensions-remain-a-security-risk-as-manifest-v3-fails-to-prevent-data-theft-and-malware-exploitation) - Ongoing vulnerabilities despite MV3
+- [SquareX Research: MV3 Security Failures (2025)](https://cybernews.com/security/creating-malicious-chrome-extension-too-easy-manifest-mv3/) - Demonstrates data theft and malware still possible with MV3
+- [Chrome Web Store Moderation Issues (2025)](https://palant.info/2025/01/13/chrome-web-store-is-a-mess/) - 920 spam extensions documented
 
 ### Implementation References
 
-- [MDN Web Crypto API Guide](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
-- [Chrome Identity API Documentation](https://developer.chrome.com/docs/extensions/reference/api/identity)
-- [JWT Best Practices (Curity)](https://curity.io/resources/learn/jwt-best-practices/)
-- [Zero-Knowledge Architecture/Encryption Guide (2025)](https://blog.uniqkey.eu/zero-knowledge-encryption/) - Note: Refers to E2EE server non-decryptable design, distinct from ZKP
+- [W3C Web Cryptography API Level 2](https://w3c.github.io/webcrypto/) - Official specification
+- [MDN Web Crypto API Guide](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) - AES-GCM implementation examples
+- [Chrome Identity API Documentation](https://developer.chrome.com/docs/extensions/reference/api/identity) - OAuth2 flow for extensions
+- [JWT Security Best Practices (Curity)](https://curity.io/resources/learn/jwt-best-practices/) - Token management guidelines
+- [OAuth 2.0 for Browser-Based Applications](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-browser-based-apps) - IETF draft-25 (expires January 2026), browser app guidelines
+- [Zero-Knowledge Encryption Explained (2025)](https://www.hivenet.com/post/zero-knowledge-encryption-the-ultimate-guide-to-unbreakable-data-security) - E2EE server non-decryptable architecture
 
 ## Appendix
 

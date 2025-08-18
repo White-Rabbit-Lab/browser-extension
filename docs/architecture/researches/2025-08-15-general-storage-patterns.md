@@ -716,8 +716,8 @@ graph TD
 
     C --> E[→ 2025-08-15-sensitive-data-architecture.md]
 
-    D -->|< 5MB| F{Needs Sync?}
-    D -->|5MB - 100MB| G{Complex Queries?}
+    D -->|< 10MB| F{Needs Sync?}
+    D -->|10MB - 100MB| G{Complex Queries?}
     D -->|\> 100MB| H[IndexedDB/Dexie]
 
     F -->|Yes| I[Chrome Storage Sync]
